@@ -114,9 +114,10 @@ class Unit(pkg) {
             =>  pkg.markMemberCacheDirty(delegate.removeLast(element));
 
         shared actual
-        void replace(Declaration element, Declaration replacement) {
-            delegate.replace(element, replacement);
+        Integer replace(Declaration element, Declaration replacement) {
+            value result = delegate.replace(element, replacement);
             pkg.markMemberCacheDirty();
+            return result;
         }
 
         shared actual

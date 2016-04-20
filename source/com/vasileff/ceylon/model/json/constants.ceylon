@@ -1,0 +1,40 @@
+shared String keyClasses       = "$c";
+shared String keyInterfaces    = "$i";
+shared String keyObjects       = "$o";
+shared String keyMethods       = "$m";
+shared String keyAttributes    = "$at";
+shared String keyAnnotations   = "an";
+shared String keyPackedAnns    = "pa";
+shared String keyType          = "$t";
+shared String keyReturnType    = "$rt";
+shared String keyTypes         = "l";
+shared String keyTypeParams    = "tp";
+shared String keyMetatype      = "mt";
+shared String keyModule        = "md";
+shared String keyName          = "nm";
+shared String keyPackage       = "pk";
+shared String keyParams        = "ps";
+shared String keySelfType      = "st";
+shared String keySatisfies     = "sts";
+shared String keyDsVariance    = "dv"; //declaration-site variance
+shared String keyUsVariance    = "uv"; //use-site variance
+shared String keyConstructors  = "$cn";
+shared String keyFlags         = "$ff";
+
+shared String keyDefault       = "def";
+shared String keyNamed         = "nam";
+shared String keyDynamic       = "dyn";
+shared String keyStatic        = "sta";
+
+shared String keyNativeDart   = "$mod-native-dart";
+
+shared String metatypeClass           = "c";
+shared String metatypeInterface       = "i";
+shared String metatypeAlias           = "als";
+shared String metatypeObject          = "o";
+shared String metatypeMethod          = "m";
+shared String metatypeAttribute       = "a";
+shared String metatypeGetter          = "g";
+shared String metatypeSetter          = "s";
+shared String metatypeTypeParameter   = "tp";
+shared String metatypeParameter       = "prm";

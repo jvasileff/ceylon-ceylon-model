@@ -1,0 +1,1002 @@
+import ceylon.collection {
+    HashSet,
+    ArrayList,
+    HashMap
+}
+import com.vasileff.ceylon.model.internal {
+    eq
+}
+import com.vasileff.ceylon.model.formatter {
+    formatType
+}
+
+shared abstract
+class Type() extends Reference() {
+
+    shared actual formal TypeDeclaration declaration;
+    shared formal Map<TypeParameter, Variance> varianceOverrides;
+    shared formal Boolean isTypeConstructor;
+
+    shared formal TypeParameter? typeConstructorParameter;
+
+    shared Boolean isAnything => declaration.isAnything;
+    shared Boolean isNothing => declaration.isNothing;
+    shared Boolean isObject => declaration.isObject;
+    shared Boolean isNull => declaration.isNull;
+    shared Boolean isTuple => declaration.isTuple;
+    shared Boolean isUnknown => declaration is UnknownType;
+    shared Boolean isClassOrInterface => declaration is ClassOrInterface;
+    shared Boolean isClass => declaration is Class;
+    shared Boolean isInterface => declaration is Interface;
+    shared Boolean isUnion => declaration is UnionType;
+    shared Boolean isIntersection => declaration is IntersectionType;
+    shared Boolean isTypeParameter => declaration is TypeParameter;
+    shared Boolean isTypeAlias => declaration is TypeAlias;
+
+    shared Unit unit => declaration.unit;
+
+    "Are all type arguments available?"
+    shared Boolean isWellDefined {
+        if (exists qt = qualifyingType, !qt.isWellDefined) {
+            // what if the qualifyingType *should* exist, but is missing?
+            return false;
+        }
+
+        for (typeParameter in declaration.typeParameters) {
+            value typeArgument = typeArguments[typeParameter];
+            if (exists typeArgument) {
+                return typeArgument.isWellDefined;
+            }
+            return typeParameter.isDefaulted;
+        }
+
+        return true;
+    }
+
+    shared
+    Boolean isExactlyNothing
+        =>  isNothing || isEmptySequenceType || isEmptyTupleType;
+
+    shared
+    Boolean isEmptySequenceType {
+        if (this.declaration.inherits(unit.sequenceDeclaration)) {
+            value et = unit.getSequentialElementType(this);
+            return et?.isExactlyNothing else false;
+        }
+        return false;
+    }
+
+    shared
+    Boolean isEmptyTupleType
+        =>  this.declaration.isTuple
+            && typeArgumentList.coalesced.any(Type.isExactlyNothing);
+
+    shared
+    {Type*} caseTypes
+        =>  if (typeArguments.empty)
+            then declaration.caseTypes
+            else declaration.caseTypes.map((ct) => ct.substituteFromType(this));
+
+    shared
+    {Type*} satisfiedTypes
+        =>  if (typeArguments.empty)
+            then declaration.satisfiedTypes
+            else declaration.satisfiedTypes.map((ct)
+                =>  ct.substituteFromType(this));
+
+    {Type*} internalSatisfiedTypes
+        =>  if (typeArguments.empty)
+            then declaration.satisfiedTypes
+            else declaration.satisfiedTypes.map((ct)
+                =>  ct.substituteFromType { this; dedup = false; });
+
+    shared
+    {Type*} extendedAndSatisfiedTypes
+        =>  if (exists et = extendedType)
+            then satisfiedTypes.follow(et)
+            else satisfiedTypes;
+
+    shared
+    {Type*} internalExtendedAndSatisfiedTypes
+        =>  if (exists et = internalExtendedType)
+            then internalSatisfiedTypes.follow(et)
+            else internalSatisfiedTypes;
+
+    shared
+    {Type*} typeArgumentList
+        =>  let (arguments = typeArguments) // typeArguments not yet memoized!
+            declaration.typeParameters.map((tp)
+                =>  arguments.get(tp) else unit.unknownType);
+
+    shared
+    Variance variance(TypeParameter typeParameter)
+        =>  varianceOverrides[typeParameter] else typeParameter.variance;
+
+    shared
+    Boolean isCovariant(TypeParameter typeParameter)
+        =>  variance(typeParameter) == covariant;
+
+    shared
+    Boolean isContravariant(TypeParameter typeParameter)
+        =>  variance(typeParameter) == contravariant;
+
+    shared
+    Boolean isExactly(Type that)
+        =>  nothing;
+
+    shared
+    Boolean isSupertypeOf(Type that)
+        =>  that.isSubtypeOf(this);
+
+    shared
+    Boolean isSubtypeOf(Type that) {
+        // FIXME use that.resolveAliases
+        if (that.isAnything) {
+            return true;
+        }
+        else if (isExactlyNothing) {
+            return true;
+        }
+        else if (isAnything) {
+            return false;
+        }
+        else if (that.isExactlyNothing) {
+            return isExactlyNothing;
+        }
+        else if (isUnion) {
+            return caseTypes.every((ct) => ct.isSubtypeOf(that));
+        }
+        else if (that.isUnion) {
+            return that.caseTypes.every((ct) => isSubtypeOf(ct));
+        }
+        else if (isIntersection) {
+            if (that.isClassOrInterface) {
+                // TODO why not return 'false' if superType is null?
+                if (exists superType = getSupertype(that.declaration),
+                        superType.isSubtypeOf(that)) {
+                    return true;
+                }
+            }
+            return satisfiedTypes.any((st) => st.isSubtypeOf(that));
+        }
+        else if (that.isIntersection) {
+            // Any reason for lack of symmetry with prior case?
+            return that.satisfiedTypes.any((st) => isSubtypeOf(st));
+        }
+        else if (isTypeConstructor && that.isTypeConstructor) {
+            return  nothing; // isSubtypeOfTypeConstructor(that);
+        }
+        else if (isTypeConstructor) {
+            return that.isAnything || that.isObject;
+        }
+        else if (isObject) {
+            return that.isObject;
+        }
+        else if (isNull) {
+            return that.isNull;
+        }
+        else if (isInterface && that.isClass) {
+            return that.isObject;
+        }
+        else if (isTuple && that.isTuple) {
+            return isSubtypeOfTuple(that);
+        }
+        else {
+            value supertype = getSupertype(that.declaration)?.resolvedAliases;
+            if (!exists supertype) {
+                return false;
+            }
+
+            value supertypeQT = supertype.qualifyingType;
+            value thatQT = that.qualifyingType;
+
+            if (exists supertypeQT, exists thatQT) {
+                value thatContainer = that.declaration.container;
+
+                if (!is ClassOrInterface thatContainer) {
+                    // not a "member"
+
+                    // TODO when does this happen? A qualifying type exists, yet the
+                    //      container is not a class or interface?
+
+                    // See Ceylon commit 8ae0b902643172cb3c85d4e105fb431e2b6763d6
+
+                    // Must be https://github.com/ceylon/ceylon/issues/4429
+                    // A fake interface at runtime to hold captured type arguments
+
+                    // Copied note:
+                    // local types with a qualifying typed
+                    // declaration do not need to obtain the
+                    // qualifying type's supertype
+                    if (!supertypeQT.isSubtypeOf(thatQT)) {
+                        return false;
+                    }
+                }
+                else {
+                    // note that the qualifying type of the
+                    // given type may be an invariant subtype
+                    // of the type that declares the member
+                    // type, as long as it doesn't refine the
+                    // member type
+                    value thatQTSupertype
+                        =   thatQT.getSupertype(thatContainer)?.resolvedAliases;
+
+                    if (!exists thatQTSupertype) {
+                        return false;
+                    }
+                    if (!supertypeQT.isSubtypeOf(thatQTSupertype)) {
+                        return false;
+                    }
+                }
+            }
+            else if (supertypeQT exists || thatQT exists) {
+                // Case only useful for incomplete model? assert(false) instead?
+                return false;
+            }
+
+            return isTypeArgumentListAssignable(supertype, that);
+        }
+    }
+
+    shared Type resolvedAliases => this; // FIXME
+
+    shared actual Boolean equals(Object that) {
+        if (!is Type that) {
+            return false;
+        }
+        if (this === that) {
+            return true;
+        }
+        if (!eq(this.qualifyingType, that.qualifyingType)) {
+            return false;
+        }
+        if (!this.declaration.equals(that.declaration)) {
+            return false;
+        }
+        // The original code considers two null type arguments to be equal,
+        // but at least for now, we don't have null type arguments.
+        if (typeArguments != that.typeArguments) {
+            return false;
+        }
+        // Precondition that you are not allowed to override a non-invariant
+        // parameter!
+        return varianceOverrides == that.varianceOverrides;
+    }
+
+    // TODO
+    shared Boolean isSubtypeOfTuple(Type that) => false;
+
+    shared
+    Type? getSupertype(Criteria | TypeDeclaration criteria) {
+        "Search for the most-specialized supertype satisfying the given predicate."
+        Type? getSupertypeForCriteria(Criteria criteria) {
+            if (criteria.satisfiesType(declaration)) {
+                return qualifiedByDeclaringType;
+            }
+            // The ceylon-model note reads...:
+            // now let's call the two most difficult methods
+            // in the whole code base:
+            value result = getPrincipalInstantiationFromCases {
+                criteria;
+                getPrincipalInstantiation(criteria);
+            };
+
+            if (exists result, !result.isNothing) {
+                return result;
+            }
+            return null;
+        }
+
+        Type? getSupertypeForDeclaration(variable TypeDeclaration? td) {
+            // don't resolve aliases here because we want to
+            // try and propagate the aliased specified in the
+            // code through to the returned supertype
+
+            if (isNothing) {
+                // From ceylon-model: this is what the backend expects, apparently
+                return null;
+            }
+
+            while (td is Alias) {
+                value et = td?.extendedType;
+                if (!exists et) {
+                    return null;
+                }
+                td = et.declaration;
+            }
+
+            value resolvedTD = td;
+            if (!exists resolvedTD) {
+                return null;
+            }
+
+            return
+            if (isSimpleSupertypeLookup(resolvedTD)) then
+                // fast. Won't have type parameters
+                (declaration.inherits(resolvedTD) then resolvedTD.type)
+            else // slow
+                getSupertypeForCriteria(SupertypeCriteria(resolvedTD));
+        }
+
+        return switch(criteria)
+               case (is Criteria) getSupertypeForCriteria(criteria)
+               else getSupertypeForDeclaration(criteria);
+    }
+
+    Type? qualifiedByDeclaringType {
+        value qualifyingType = this.qualifyingType;
+        if (!exists qualifyingType) {
+            return this;
+        }
+        value container = declaration.container;
+        if (!is ClassOrInterface container) {
+            // local types can't have qualifying types that differ
+            return this;
+        }
+
+        // replace the qualifying type with the supertype of the qualifying
+        // type that declares this nested type, substituting type arguments
+        value declaringType = qualifyingType.getSupertype(container);
+
+        return createType {
+            declaration = declaration;
+            qualifyingType = declaringType;
+            typeArguments = aggregateTypeArguments {
+                declaringType;
+                declaration;
+                typeArgumentList;
+            };
+            varianceOverrides =  varianceOverrides;
+        };
+    }
+
+    Type? getPrincipalInstantiation(Criteria c) {
+        // search for the most-specific supertype for the declaration that satisfies
+        // the given Criteria
+
+        variable [Type, Type]? resultAndLowerBound = null;
+
+        value candidates
+            =>  internalExtendedAndSatisfiedTypes.map((st)
+                =>  st.getSupertype(c)).coalesced;
+
+        for (candidate in candidates) {
+            value previous = resultAndLowerBound;
+
+            if (!exists previous) {
+                resultAndLowerBound = [candidate, candidate];
+            }
+            else if (previous[0].isSubtypeOf(candidate)) {
+                // just ignore this candidate
+            }
+            else if (candidate.isSubtypeOf(previous[1])) {
+                resultAndLowerBound = [candidate, candidate];
+            }
+            else {
+                // try to find a supertype of both types and form a principal
+                // instantiation
+                if (previous[0].declaration == candidate.declaration) {
+                    resultAndLowerBound
+                        =   [principalInstantiation {
+                                previous[0].declaration;
+                                candidate;
+                                previous[0];
+                                unit;
+                            },
+                            previous[1]];
+                }
+                else {
+                    // ambiguous! we can't decide between the two supertypes which
+                    // both satisfy the criteria
+                    if (c.memberLookup) {
+                        // for the case of a member lookup, try to find a common
+                        // supertype by forming the union of the two possible results
+                        // (since A|B is always a supertype of A&B)
+                        value newLowerBound
+                            =   intersection([previous[1], candidate], unit);
+
+                        value newResult
+                            =   union(newLowerBound.satisfiedTypes, unit)
+                                .getSupertype(c);
+
+                        if (!exists newResult) {
+                            return unit.unknownType;
+                        }
+
+                        resultAndLowerBound = [newResult, newLowerBound];
+                    }
+                }
+            }
+        }
+
+        return resultAndLowerBound?.first;
+    }
+
+    Type | Absent getPrincipalInstantiationFromCases<Absent>
+            (Criteria c, Type | Absent result)
+            given Absent satisfies Null {
+
+        Type? getCommonSupertype({Type*} caseTypes, TypeDeclaration declaration) {
+            // now try to construct a common produced type that is a common supertype by
+            // taking the type args and unioning them
+
+            value args = ArrayList<Type>();
+            value unit = declaration.unit;
+
+            if (!declaration.typeParameters.empty) {
+                value caseSupertypes
+                    =   let (maybeResult
+                                =   caseTypes
+                                    .filter(not(Type.isNothing))
+                                    .collect((ct) => ct.getSupertype(declaration)))
+                        (maybeResult.every((st) => st exists)
+                        then maybeResult.coalesced);
+
+                if (!exists caseSupertypes) {
+                    return null;
+                }
+
+                value varianceOverrides = HashMap<TypeParameter, Variance>();
+
+                for (typeParameter in declaration.typeParameters) {
+                    Type result;
+
+                    switch (typeParameter.variance)
+                    case (covariant) {
+                        result = unionDeduped {
+                            caseSupertypes
+                                .map((st) => st.typeArguments[typeParameter])
+                                .coalesced; // there shouldn't be any nulls
+                            unit;
+                        };
+                    }
+                    case (contravariant) {
+                        result = intersectionDedupedCanonical {
+                            caseSupertypes
+                                .map((st) => st.typeArguments[typeParameter])
+                                .coalesced; // there shouldn't be any nulls
+                            unit;
+                        };
+                    }
+                    case (invariant) {
+                        // invariant is harder, need to account for use site variances!
+
+                        value union = unionDeduped {
+                            caseSupertypes
+                                .filter((st) => !st.variance(typeParameter).isContravariant)
+                                .map((st) => st.typeArguments[typeParameter])
+                                .coalesced; // there shouldn't be any nulls
+                            unit;
+                        };
+
+                        value intersection = intersectionDeduped {
+                            caseSupertypes
+                                .filter((st) => !st.variance(typeParameter).isCovariant)
+                                .map((st) => st.typeArguments[typeParameter])
+                                .coalesced; // there shouldn't be any nulls
+                            unit;
+                        };
+
+                        value covarientExists
+                            =   caseSupertypes.any((st)
+                                =>  st.variance(typeParameter).isCovariant);
+
+                        value contravarientExists
+                            =   caseSupertypes.any((st)
+                                =>  st.variance(typeParameter).isContravariant);
+
+                        if (!covarientExists && !contravarientExists) {
+                            if (union.isExactly(intersection)) {
+                                result = union; //invariant
+                            }
+                            else {
+                                //NOTE: big asymmetry here that
+                                //      privileges covariance over
+                                //      contravariance. More elegant
+                                //      would be to have double
+                                //      bounded wildcards like
+                                //      "in ITT out UTT"
+                                result = union;
+                                varianceOverrides.put(typeParameter, covariant);
+                            }
+                        }
+                        else if (covarientExists && !contravarientExists) {
+                            result = union;
+                            varianceOverrides.put(typeParameter, covariant);
+                        }
+                        else if (contravarientExists && !covarientExists) {
+                            result = intersection;
+                            varianceOverrides.put(typeParameter, contravariant);
+                        }
+                        else {
+                            // we have mixed covariant and invariant
+                            // instantiations - that's only OK if we
+                            // have something of form
+                            value upperBound = typeParameter.intersectionOfSupertypes;
+                            result = upperBound;
+                            varianceOverrides.put(typeParameter, covariant);
+                            // Note we could have used "in Nothing"
+                            //      here instead
+                        }
+                    }
+
+                    args.add {
+                        if (!typeParameter.isTypeConstructor)
+                        then result
+                        else copyType { // TODO construct a type alias instead!
+                            result;
+                            isTypeConstructor = true;
+                            typeConstructorParameter = typeParameter;
+                        };
+                    };
+                }
+            }
+
+            // recurse to the qualifying type
+            Type? outerType;
+            if (is ClassOrInterface outerDeclaration = declaration.container,
+                    !declaration.isStatic) {
+                // it's a member
+                value outerTypes = caseTypes.map((ct) {
+                    value intersectedTypes
+                        =   if (ct.isIntersection)
+                            then ct.satisfiedTypes
+                            else [ct];
+
+                    for (intersectedType in intersectedTypes) {
+                        if (intersectedType.declaration.container
+                                is ClassOrInterface) {
+                            assert (exists qualifyingTypeSupertype
+                                =   intersectedType
+                                        .qualifyingType
+                                        ?.getSupertype(outerDeclaration));
+
+                            return qualifyingTypeSupertype;
+                        }
+                    }
+                    return null;
+                }).coalesced;
+
+                outerType = getCommonSupertype(outerTypes, outerDeclaration);
+            }
+            else {
+                outerType = null;
+            }
+
+            // make the resulting type
+            value candidate
+                =   declaration.appliedType {
+                        outerType;
+                        args;
+                        varianceOverrides;
+                    };
+
+            // check the the resulting type is *really* a subtype (take variance into
+            // account)
+            return caseTypes.every((ct) => ct.isSubtypeOf(candidate)) then candidate;
+        }
+
+        function findCommonSuperclass(Criteria c, {Type*} types) {
+            variable TypeDeclaration? result = null;
+            value first = types.first?.declaration;
+            if (!exists first) {
+                return null;
+            }
+            for (candidate in first.supertypeDeclarations) {
+                if (is ClassOrInterface candidate, c.satisfiesType(candidate)) {
+                    if (types.every((t) => t.declaration.inherits(candidate))) {
+                        value previous = result;
+                        if (!exists previous) {
+                            result = candidate;
+                        }
+                        else if (candidate.inherits(previous)) {
+                            result = candidate;
+                        }
+                        else if (!previous.inherits(candidate)) {
+                            // JV: will this ever happen?
+                            result = null;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        if (isUnion, nonempty caseTypes = this.caseTypes.sequence()) {
+            // first find a common superclass or superinterface
+            // declaration that satisfies the criteria, ignoring
+            // type arguments for now
+            if (exists superDeclaration = findCommonSuperclass(c, caseTypes)) {
+                // we found the declaration, now try to construct a
+                // produced type that is a true common supertype
+                if (exists candidate = getCommonSupertype(caseTypes, superDeclaration)) {
+                    if (!exists result) {
+                        return candidate;
+                    }
+                    else if (candidate.isSubtypeOf(result)) {
+                        return candidate;
+                    }
+                }
+            }
+
+        }
+        return result;
+    }
+
+    Boolean isSimpleSupertypeLookup(TypeDeclaration? td)
+        =>  td is ClassOrInterface
+                && !declaration is UnionType
+                && !declaration is IntersectionType
+                && declaration.typeParameters.empty
+                && !declaration.container is ClassOrInterface
+                // this is for the runtime which uses
+                // qualifying types in a strange way
+                // https://github.com/ceylon/ceylon/issues/4429
+                && !qualifyingType exists;
+
+    Type? extendedType
+        =>  let (et = declaration.extendedType)
+            if (exists et, !et.typeArguments.empty)
+            then et.substituteFromType(this)
+            else et;
+
+    Type? internalExtendedType
+        =>  let (et = declaration.extendedType)
+            if (exists et, !et.typeArguments.empty)
+            then et.substituteFromType { this; dedup = false; }
+            else et;
+
+    "Substitute the type arguments and use-site variances given in the given type into
+     this type, which is usually a supertype of the given type."
+    Type substituteFromType(
+            "The source for the type arguments"
+            Type source,
+            "Variance overrides; default is to use overrides from the [[source]]"
+            Map<TypeParameter, Variance> overrides = source.varianceOverrides,
+            "Dedup union and intersection types?"
+            Boolean dedup = true)
+        =>  let (substitutions = source.typeArguments)
+            // Is this optimization safe? It defeats the side effects of
+            // union/intersection simplification and type argument aggregation.
+            if (substitutions.empty)
+            then this
+            else package.substitute {
+                if (!overrides.empty)
+                    then applyVarianceOverrides(covariant, overrides)
+                    else this;
+                covariant;
+                substitutions;
+                overrides;
+                dedup;
+            };
+
+    "Substitute the given types for the corresponding given type parameters wherever they
+     appear in the type. Has the side-effect of performing disjoint type analysis,
+     simplifying union/intersection types, even when there are no substitutions."
+    // Note: "even when there are no substitutions" is not true in ceylon-model.
+    shared
+    Type substitute(
+            Map<TypeParameter, Type> substitutions,
+            Map<TypeParameter, Variance> varianceOverrides)
+        =>  package.substitute {
+                this; covariant; substitutions; varianceOverrides; true;
+            };
+
+    Type applyVarianceOverrides
+            (Variance variance, Map<TypeParameter, Variance> overrides) {
+
+        if (overrides.empty) {
+            return this;
+        }
+
+        if (is TypeParameter declaration = this.declaration) {
+            if (exists override = overrides.get(declaration)) {
+                if (variance.isContravariant && override.isCovariant) {
+                    // if a type parameter occurs in a contravariant position, and the
+                    // specified use-site variance is "out", replace the type parameter
+                    // with its lower bound Nothing, throwing away the use-site upper
+                    // bound
+                    return unit.nothingDeclaration.type;
+                }
+                else if (variance.isCovariant && override.isContravariant) {
+                    // if a type parameter occurs in a covariant position, and the
+                    // specified use-site variance is "in", replace the type parameter
+                    // with its upper bounds, throwing away the use-site lower bound
+
+                    value set = HashSet<Type>();
+                    for (bound in declaration.satisfiedTypes) {
+                        // ignore bounds in which the type parameter itself occurs
+                        // covariantly because they would result in a stack overflow here
+                        // TODO perhaps we should just
+                        //      substitute Anything for the
+                        //      type parameter in such bounds,
+                        //      which would be a little more
+                        //      precise
+                        if (!bound.occursCovariantly(declaration)) {
+                            value applied
+                                =   bound.applyVarianceOverrides(variance, overrides);
+                            addToIntersection(set, applied, unit);
+                        }
+                    }
+                    return canonicalIntersection(set, unit);
+                }
+            }
+            return this;
+        }
+        else if (isUnion) {
+            return unionDeduped {
+                caseTypes.map((ct)
+                    =>  ct.applyVarianceOverrides(variance, overrides));
+                unit;
+            };
+        }
+        else if (isIntersection) {
+            return intersectionDedupedCanonical {
+                satisfiedTypes.map((st)
+                    =>  st.applyVarianceOverrides(variance, overrides));
+                unit;
+            };
+        }
+
+        if (declaration.typeParameters.empty) {
+            // we have variance overrides from a qualifying type
+            // optimize, since no work to do
+            return this;
+        }
+
+        value resultArgs = ArrayList<Type>();
+        value varianceResults = HashMap<TypeParameter, Variance>();
+
+        for (parameter -> argument
+                in zipEntries(declaration.typeParameters, typeArgumentList)) {
+
+            switch (this.variance(parameter))
+            case (covariant) {
+                resultArgs.add {
+                    argument.applyVarianceOverrides  {
+                        variance;
+                        overrides;
+                    };
+                };
+            }
+            case (contravariant) {
+                resultArgs.add {
+                    argument.applyVarianceOverrides  {
+                        variance.opposite;
+                        overrides;
+                    };
+                };
+            }
+            case (invariant) {
+                switch (variance)
+                case (contravariant) {
+                    if (argument.isTypeParameter
+                            && overrides.defines(argument.declaration)) {
+                        return unit.nothingDeclaration.type;
+                    }
+                }
+                case (covariant) {
+                    if (argument.isTypeParameter,
+                            exists override = overrides[argument.declaration]) {
+                        varianceResults.put(parameter, override);
+                        resultArgs.add(argument);
+                        continue;
+                    }
+                }
+                case (invariant) {
+                    // default ok
+                }
+                value resultArg
+                    =   argument.applyVarianceOverrides(variance, overrides);
+
+                if (resultArg.isNothing) {
+                    return resultArg;
+                }
+
+                resultArgs.add(resultArg);
+                if (argument.involvesTypeParametersAny(overrides.keys)) {
+                    varianceResults.put(parameter, covariant);
+                }
+            }
+        }
+
+        return
+        declaration.appliedType {
+            qualifyingType;
+            resultArgs.sequence();
+            varianceResults;
+            // TODO underlyingType ???
+        };
+    }
+
+    shared
+    Boolean occursCovariantly(TypeParameter typeParameter, Boolean covariant = true) {
+        if (isUnknown || isNothing) {
+            return false;
+        }
+        if (isUnion) {
+            return caseTypes.any((caseType)
+                =>  caseType.occursCovariantly(typeParameter, covariant));
+        }
+        if (isIntersection) {
+            return satisfiedTypes.any((satisfiedType)
+                =>  satisfiedType.occursCovariantly(typeParameter, covariant));
+        }
+
+        if (covariant && declaration == typeParameter) {
+            return true;
+        }
+        if (exists qualifyingType = this.qualifyingType,
+                qualifyingType.occursCovariantly(typeParameter, covariant)) {
+            return true;
+        }
+        for (parameter -> argument
+                in zipEntries(declaration.typeParameters, typeArgumentList)) {
+            if (!variance(parameter).isInvariant) {
+                return argument.occursCovariantly {
+                    parameter;
+                    if (variance(parameter).isContravariant)
+                        then !covariant
+                        else covariant;
+                };
+            }
+        }
+        return false;
+    }
+
+    shared
+    Boolean occursContravariantly(TypeParameter typeParameter, Boolean covariant = true) {
+        if (isUnknown || isNothing) {
+            return false;
+        }
+        if (isUnion) {
+            return caseTypes.any((caseType)
+                =>  caseType.occursContravariantly(typeParameter, covariant));
+        }
+        if (isIntersection) {
+            return satisfiedTypes.any((satisfiedType)
+                =>  satisfiedType.occursContravariantly(typeParameter, covariant));
+        }
+
+        if (!covariant && declaration == typeParameter) {
+            return true;
+        }
+        if (exists qualifyingType = this.qualifyingType,
+                qualifyingType.occursContravariantly(typeParameter, covariant)) {
+            return true;
+        }
+        for (parameter -> argument
+                in zipEntries(declaration.typeParameters, typeArgumentList)) {
+            if (!variance(parameter).isInvariant) {
+                return argument.occursContravariantly {
+                    parameter;
+                    if (variance(parameter).isContravariant)
+                        then !covariant
+                        else covariant;
+                };
+            }
+        }
+        return false;
+    }
+
+    shared
+    interface Criteria {
+        shared formal Boolean satisfiesType(TypeDeclaration type);
+        shared formal Boolean memberLookup;
+    }
+
+    // TODO rename to "ExactCriteria", to describe what it does rather than
+    //      where it's used? But... there is an ExactCriteria that does something else?
+    class SupertypeCriteria(TypeDeclaration td) satisfies Criteria {
+        shared actual Boolean satisfiesType(TypeDeclaration satisfiesTd)
+            =>  !satisfiesTd is UnionType
+                    && !satisfiesTd is IntersectionType
+                    && satisfiesTd.equals(td);
+
+        shared actual Boolean memberLookup => false;
+    }
+
+    shared
+    Boolean involvesTypeParameters
+        =>  isTypeParameter
+                || isUnion && caseTypes.any(Type.involvesTypeParameters)
+                || isIntersection && satisfiedTypes.any(Type.involvesTypeParameters)
+                || typeArgumentList.any(Type.involvesTypeParameters)
+                || (qualifyingType?.involvesTypeParameters else false);
+
+    shared
+    Boolean involvesTypeParametersAny({TypeParameter*} parameters)
+        =>  isTypeParameter && parameters.contains(this.declaration)
+                || isUnion && caseTypes.any((t)
+                        =>  t.involvesTypeParametersAny(parameters))
+                || isIntersection && satisfiedTypes.any((t)
+                        =>  t.involvesTypeParametersAny(parameters))
+                || typeArgumentList.any((t)
+                        =>  t.involvesTypeParametersAny(parameters))
+                || (qualifyingType
+                            ?.involvesTypeParametersAny(parameters) else false);
+
+    shared actual
+    String string
+        =>  formatType(this);
+
+    shared
+    String qualifiedName {
+        return nothing;
+    }
+
+    shared
+    String qualifiedString
+        =>  if (isUnion) then
+                "|".join(caseTypes.map(Type.qualifiedString))
+            else if (isIntersection) then
+                "&".join(satisfiedTypes.map(Type.qualifiedString))
+            else qualifiedName;
+}
+
+shared
+Type createType(
+        TypeDeclaration declaration,
+        Map<TypeParameter, Type> typeArguments = emptyMap,
+        Type? qualifyingType = null,
+        Boolean isTypeConstructor = false,
+        Map<TypeParameter,Variance> varianceOverrides = emptyMap,
+        TypeParameter? typeConstructorParameter = null)
+    =>  TypeImpl(declaration, qualifyingType, typeArguments,
+                 varianceOverrides, isTypeConstructor, typeConstructorParameter);
+
+shared
+Type typeFromName(
+        {String+} declarationName,
+        String? moduleName = null,
+        String? packageName = null,
+        Type? qualifyingType = null,
+        Map<TypeParameter, Type> typeArguments = emptyMap,
+        Map<TypeParameter,Variance> varianceOverrides = emptyMap)
+        (Scope scope) {
+
+    "Type's must have an associated TypeDeclaration."
+    assert (is TypeDeclaration declaration
+        =   scope.findDeclaration {
+                declarationName = declarationName;
+                packageName = packageName;
+                moduleName = moduleName;
+            });
+
+    return createType {
+        declaration = declaration;
+        typeArguments = typeArguments;
+        qualifyingType = qualifyingType;
+        varianceOverrides = varianceOverrides;
+    };
+}
+
+shared
+Type copyType(
+        Type from,
+        TypeDeclaration declaration = from.declaration,
+        Map<TypeParameter, Type> specifiedTypeArguments = from.specifiedTypeArguments,
+        Type? qualifyingType = from.qualifyingType,
+        Boolean isTypeConstructor = from.isTypeConstructor,
+        Map<TypeParameter,Variance> varianceOverrides = from.varianceOverrides,
+        TypeParameter? typeConstructorParameter = from.typeConstructorParameter)
+    =>  TypeImpl(declaration, qualifyingType, specifiedTypeArguments,
+                 varianceOverrides, isTypeConstructor, typeConstructorParameter);
+
+class TypeImpl(
+        declaration,
+        qualifyingType,
+        specifiedTypeArguments,
+        varianceOverrides,
+        isTypeConstructor,
+        typeConstructorParameter) extends Type() {
+
+    shared actual Map<TypeParameter, Type> specifiedTypeArguments;
+    shared actual Type? qualifyingType;
+    shared actual TypeDeclaration declaration;
+    shared actual Boolean isTypeConstructor;
+    shared actual Map<TypeParameter,Variance> varianceOverrides;
+    shared actual TypeParameter? typeConstructorParameter;
+}

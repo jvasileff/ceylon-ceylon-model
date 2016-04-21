@@ -8,9 +8,11 @@ class TypedReference(
         variance = invariant)
         extends Reference() {
 
-    shared actual TypeDeclaration declaration;
-    shared actual Type qualifyingType;
+    shared actual TypedDeclaration declaration;
+    shared actual Type? qualifyingType;
 
     shared actual Map<TypeParameter, Type> specifiedTypeArguments;
     shared Variance variance;
+
+    shared Type type => declaration.type.substituteFromTypedReference(this);
 }

@@ -1,7 +1,8 @@
 import ceylon.collection {
     HashSet,
     ArrayList,
-    HashMap
+    HashMap,
+    unlinked
 }
 
 import com.vasileff.ceylon.model.internal {
@@ -675,6 +676,33 @@ class Type() extends Reference() {
                 overrides;
                 dedup;
             };
+
+    "Substitute the type arguments and use-site variances given in the qualifying type
+     and type arguments of the given member reference into this type (which is always
+     the type of the member reference)."
+    shared
+    Type substituteFromTypedReference(TypedReference source)
+        =>  package.substitute {
+                type = this;
+                variance = source.variance;
+                substitutions = source.typeArguments;
+                varianceOverrides
+                    =   source.qualifyingType?.collectedVarianceOverrides
+                        else emptyMap;
+            };
+
+    Map<TypeParameter, Variance> collectedVarianceOverrides
+        =>  let (qualifyingOverrides
+                =   qualifyingType?.varianceOverrides else emptyMap)
+            if (varianceOverrides.empty)
+                then qualifyingOverrides
+            else
+                map {
+                    expand {
+                        varianceOverrides,
+                        qualifyingOverrides
+                    };
+                };
 
     "Substitute the given types for the corresponding given type parameters wherever they
      appear in the type. Has the side-effect of performing disjoint type analysis,

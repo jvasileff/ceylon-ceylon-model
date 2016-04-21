@@ -186,6 +186,10 @@ class TypeDeclaration()
         =>  eq(qualifiedName, "ceylon.language::Anything");
 
     shared
+    Boolean isEntry
+        =>  eq(qualifiedName, "ceylon.language::Entry");
+
+    shared
     Boolean isNothing
         =>  eq(qualifiedName, "ceylon.language::Nothing");
 

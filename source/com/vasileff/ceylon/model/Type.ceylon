@@ -3,9 +3,6 @@ import ceylon.collection {
     ArrayList,
     HashMap
 }
-import ceylon.language.meta {
-    type
-}
 
 import com.vasileff.ceylon.model.internal {
     eq
@@ -21,6 +18,7 @@ class Type() extends Reference() {
     shared formal TypeParameter? typeConstructorParameter;
 
     shared Boolean isAnything => declaration.isAnything;
+    shared Boolean isEntry => declaration.isEntry;
     shared Boolean isNothing => declaration.isNothing;
     shared Boolean isObject => declaration.isObject;
     shared Boolean isNull => declaration.isNull;
@@ -108,6 +106,10 @@ class Type() extends Reference() {
         =>  let (arguments = typeArguments) // typeArguments not yet memoized!
             declaration.typeParameters.map((tp)
                 =>  arguments.get(tp) else unit.unknownType);
+
+    shared
+    {<TypeParameter -> Type>*} typeArgumentListEntries
+        =>  zipEntries(declaration.typeParameters, typeArgumentList);
 
     shared
     Variance variance(TypeParameter typeParameter)
@@ -651,6 +653,7 @@ class Type() extends Reference() {
 
     "Substitute the type arguments and use-site variances given in the given type into
      this type, which is usually a supertype of the given type."
+    shared
     Type substituteFromType(
             "The source for the type arguments"
             Type source,
@@ -750,8 +753,7 @@ class Type() extends Reference() {
         value resultArgs = ArrayList<Type>();
         value varianceResults = HashMap<TypeParameter, Variance>();
 
-        for (parameter -> argument
-                in zipEntries(declaration.typeParameters, typeArgumentList)) {
+        for (parameter -> argument in typeArgumentListEntries) {
 
             switch (this.variance(parameter))
             case (covariant) {
@@ -833,8 +835,7 @@ class Type() extends Reference() {
                 qualifyingType.occursCovariantly(typeParameter, covariant)) {
             return true;
         }
-        for (parameter -> argument
-                in zipEntries(declaration.typeParameters, typeArgumentList)) {
+        for (parameter -> argument in typeArgumentListEntries) {
             if (!variance(parameter).isInvariant) {
                 return argument.occursCovariantly {
                     parameter;
@@ -868,8 +869,7 @@ class Type() extends Reference() {
                 qualifyingType.occursContravariantly(typeParameter, covariant)) {
             return true;
         }
-        for (parameter -> argument
-                in zipEntries(declaration.typeParameters, typeArgumentList)) {
+        for (parameter -> argument in typeArgumentListEntries) {
             if (!variance(parameter).isInvariant) {
                 return argument.occursContravariantly {
                     parameter;
@@ -921,10 +921,17 @@ class Type() extends Reference() {
 
     shared actual
     String string
-        // TODO use type printer
         =>  if (isTypeConstructor)
-            then qualifiedNameWithTypeArguments + " (type constructor)"
-            else qualifiedNameWithTypeArguments + " (type)";
+            then formatted + " (type constructor)"
+            else formatted + " (type)";
+
+    shared
+    String formatted
+        =>  format();
+
+    shared
+    String formattedAsSourceCode
+        =>  formatEscaped();
 
     String typeArgumentsAsString
         =>  if (nonempty typeArgumentList = this.typeArgumentList.sequence())
@@ -960,6 +967,229 @@ class Type() extends Reference() {
 
         sb.append(typeArgumentsAsString);
 
+        return sb.string;
+    }
+
+    shared
+    String formatEscaped()
+        =>  format {
+                escapeLowercased = true;
+            };
+
+    shared
+    String format(
+            Boolean printAbbreviated = true,
+            Boolean printTypeParameters = true,
+            Boolean printTypeParameterDetail = false,
+            Boolean printQualifyingType = true,
+            Boolean printQualifier = false,
+            Boolean printFullyQualified = false,
+            Boolean escapeLowercased = false) {
+
+        // FIXME The name is dependent on the Unit in which the name appears, because of
+        //       import aliases! So we need to accept a unit argument and do things like
+        //       declaration.getName(unit).
+
+        void printType(StringBuilder sb, Type type) {
+
+            void printSimpleDeclarationName(StringBuilder sb, Declaration declaration) {
+                // FIXME unit.getName(declaration), to resolve import aliases
+                value name = declaration.name;
+                if (escapeLowercased, exists first = name.first, !first.uppercase) {
+                    sb.append("\\I");
+                }
+                sb.append(name);
+            }
+
+            void printDeclaration
+                    (StringBuilder sb, Declaration declaration, Boolean fullyQualified) {
+
+                if (fullyQualified && !declaration is TypeParameter) {
+                    // type parameters are not fully qualified
+
+                    "The first ancestor declaration or package."
+                    value container
+                        =   loop(declaration of Scope)((c) => c.container else finished)
+                                .rest.narrow<Package | Declaration | Null>().first;
+
+                    switch (container)
+                    case (is Null) {}
+                    case (is Package) {
+                        value qName = container.qualifiedName;
+                        if (!qName.empty) {
+                            sb.append(qName);
+                            sb.append("::");
+                        }
+                    }
+                    case (is Declaration) {
+                        printDeclaration(sb, container, fullyQualified);
+                        sb.append(".");
+                    }
+                }
+
+                if (printQualifier, exists qualifier = declaration.qualifier) {
+                    // TODO We might want to make the qualifier an "official" part of the
+                    //      declaration's name, so that declaration.qualifiedNames would be
+                    //      unique. This code would then be removed.
+                    sb.append(qualifier.string);
+                }
+
+                printSimpleDeclarationName(sb, declaration);
+            }
+
+            void printSimpleProducedTypeName(StringBuilder sb, Type type) {
+                variable value fullyQualified = printFullyQualified;
+
+                if (printQualifyingType) {
+                    if (exists qt = type.qualifyingType, qt.declaration.isNamed) {
+                        value isComplex = qt.isIntersection || qt.isUnion;
+                        if (isComplex) {
+                            sb.append("<");
+                        }
+                        printType(sb, qt);
+                        if (isComplex) {
+                            sb.append("<");
+                        }
+                        sb.append(".");
+                        fullyQualified = false;
+                    }
+                }
+
+                printDeclaration(sb, type.declaration, fullyQualified);
+
+                if (printTypeParameters,
+                    !type.isTypeConstructor,
+                    nonempty typeArguments
+                        =   type.typeArgumentListEntries.sequence()) {
+
+                    sb.append("<");
+
+                    variable value first = true;
+
+                    for (parameter -> argument in typeArguments) {
+                        if (first) {
+                            first = false;
+                        }
+                        else {
+                            sb.append(", ");
+                        }
+
+                        if (!parameter.variance.isCovariant
+                                && type.isCovariant(parameter)) {
+                            sb.append("out ");
+                        }
+                        else if (!parameter.variance.isContravariant
+                                && type.isContravariant(parameter)) {
+                            sb.append("in ");
+                        }
+
+                        printType(sb, argument);
+                    }
+                    sb.append(">");
+                }
+            }
+
+            // TODO handle abbreviations
+            // abbreviateOptional
+            // abbreviateEmpty
+            // abbreviateHomoTuple
+            // abbreviateSequential
+            // abbreviateSequence
+            // abbreviateIterable
+            // abbreviateEntry
+            // abbreviateCallable
+            // abbreviateTuple
+
+            if (type.isUnion) {
+                variable value first = true;
+                for (caseType in type.caseTypes) {
+                    if (first) {
+                        first = false;
+                    }
+                    else {
+                        sb.append("|");
+                    }
+                    value needsAngles = printAbbreviated && caseType.isEntry;
+                    if (needsAngles) {
+                        sb.append("<");
+                    }
+                    printType(sb, caseType);
+                    if (needsAngles) {
+                        sb.append(">");
+                    }
+                }
+                return;
+            }
+            else if (type.isIntersection) {
+                variable value first = true;
+                for (satisfiedType in type.satisfiedTypes) {
+                    if (first) {
+                        first = false;
+                    }
+                    else {
+                        sb.append("&");
+                    }
+
+                    value needsAngles
+                        =   satisfiedType.isUnion
+                                || printAbbreviated && satisfiedType.isEntry;
+
+                    if (needsAngles) {
+                        sb.append("<");
+                    }
+                    printType(sb, satisfiedType);
+                    if (needsAngles) {
+                        sb.append(">");
+                    }
+                }
+                return;
+            }
+            else if (is TypeParameter typeParameter = type.declaration) {
+                if (printTypeParameterDetail) {
+                    switch (typeParameter.variance)
+                    case (invariant) {}
+                    case (contravariant) {
+                        sb.append("in ");
+                    }
+                    case (covariant) {
+                        sb.append("out ");
+                    }
+                }
+
+                printSimpleProducedTypeName(sb, type);
+
+                if (printTypeParameterDetail,
+                        exists defaultArgument = typeParameter.defaultTypeArgument) {
+                    sb.append(" = ");
+                    printType(sb, defaultArgument);
+                }
+                return;
+            }
+            else {
+                if (is Alias declaration = type.declaration,
+                    declaration.isAnonymous) {
+
+                    if (type.isTypeConstructor) {
+                        throw; // FIXME TODO
+                    }
+
+                    "Aliases have extended types."
+                    assert (exists extendedType = declaration.extendedType);
+
+                    // append type aliased type
+                    printType(sb, extendedType.substituteFromType(type));
+
+                    return;
+                }
+                else {
+                    printSimpleProducedTypeName(sb, type);
+                    return;
+                }
+            }
+        }
+
+        value sb = StringBuilder();
+        printType(sb, this);
         return sb.string;
     }
 }

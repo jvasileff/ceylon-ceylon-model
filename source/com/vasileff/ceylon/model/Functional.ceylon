@@ -10,7 +10,7 @@ interface Functional {
             sb.appendCharacter('(');
             // TODO make sure model.type.string is right for functional parameters!
             sb.append(", ".join(parameterList.parameters.map((p)
-                =>  p.model.type.qualifiedNameWithTypeArguments + " " + p.model.name)));
+                =>  p.model.type.formatted + " " + p.model.name)));
             sb.appendCharacter(')');
         }
         return sb.string;

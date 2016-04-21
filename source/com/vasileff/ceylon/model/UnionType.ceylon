@@ -6,7 +6,7 @@ class UnionType(caseTypes, unit) extends TypeDeclaration() {
 
     shared actual Value[] caseValues => [];
     shared actual Type? extendedType => unit.anythingDeclaration.type;
-    shared actual String name => type.string;
+    shared actual String name => type.formatted;
     shared actual Null qualifier => null;
     shared actual String qualifiedName => type.qualifiedNameWithTypeArguments;
     shared actual Null refinedDeclaration => null;

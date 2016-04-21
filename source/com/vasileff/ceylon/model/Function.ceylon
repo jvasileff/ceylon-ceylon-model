@@ -21,5 +21,5 @@ class Function(name, refinedDeclaration, typeLG)
     String string
         =>  "function ``partiallyQualifiedNameWithTypeParameters``\
              ``valueParametersAsString`` \
-             => ``type.qualifiedNameWithTypeArguments``";
+             => ``type.formatted``";
 }

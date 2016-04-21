@@ -19,6 +19,7 @@ class Function(name, refinedDeclaration, typeLG)
 
     shared actual
     String string
-        =>  "function ``partiallyQualifiedNameWithTypeParameters````valueParametersAsString`` \
-             => ``type.string``";
+        =>  "function ``partiallyQualifiedNameWithTypeParameters``\
+             ``valueParametersAsString`` \
+             => ``type.qualifiedNameWithTypeArguments``";
 }

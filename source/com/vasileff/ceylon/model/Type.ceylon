@@ -3,11 +3,12 @@ import ceylon.collection {
     ArrayList,
     HashMap
 }
+import ceylon.language.meta {
+    type
+}
+
 import com.vasileff.ceylon.model.internal {
     eq
-}
-import com.vasileff.ceylon.model.formatter {
-    formatType
 }
 
 shared abstract
@@ -920,20 +921,47 @@ class Type() extends Reference() {
 
     shared actual
     String string
-        =>  formatType(this);
+        // TODO use type printer
+        =>  if (isTypeConstructor)
+            then qualifiedNameWithTypeArguments + " (type constructor)"
+            else qualifiedNameWithTypeArguments + " (type)";
+
+    String typeArgumentsAsString
+        =>  if (nonempty typeArgumentList = this.typeArgumentList.sequence())
+            then "<``", ".join(typeArgumentList.map(
+                    Type.qualifiedNameWithTypeArguments))``>"
+            else "";
 
     shared
-    String qualifiedName {
-        return nothing;
+    String qualifiedNameWithTypeArguments {
+        if (isUnion) {
+            return "|".join(caseTypes.map(Type.qualifiedNameWithTypeArguments));
+        }
+
+        if (isIntersection) {
+            return "&".join(satisfiedTypes.map(Type.qualifiedNameWithTypeArguments));
+        }
+
+        if (isTypeConstructor) {
+            return nothing;
+        }
+
+        value sb = StringBuilder();
+
+        if (exists qualifyingType = qualifyingType) {
+            sb.append(qualifyingType.qualifiedNameWithTypeArguments);
+            sb.append(".");
+            sb.append(declaration.name);
+        }
+        else {
+            // includes "package::"
+            sb.append(declaration.qualifiedName);
+        }
+
+        sb.append(typeArgumentsAsString);
+
+        return sb.string;
     }
-
-    shared
-    String qualifiedString
-        =>  if (isUnion) then
-                "|".join(caseTypes.map(Type.qualifiedString))
-            else if (isIntersection) then
-                "&".join(satisfiedTypes.map(Type.qualifiedString))
-            else qualifiedName;
 }
 
 shared

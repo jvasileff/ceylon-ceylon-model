@@ -13,7 +13,7 @@ class IntersectionType(satisfiedTypes, unit) extends TypeDeclaration() {
     shared actual Type? extendedType => unit.anythingDeclaration.type;
     shared actual String name => type.string;
     shared actual Integer? qualifier => null;
-    shared actual String qualifiedName => type.qualifiedString;
+    shared actual String qualifiedName => type.qualifiedNameWithTypeArguments;
     shared actual Declaration? refinedDeclaration => null;
     shared actual Type? selfType => null;
 

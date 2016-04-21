@@ -49,8 +49,6 @@ class Declaration() of TypeDeclaration | TypedDeclaration extends Element() {
     Boolean isToplevel
         =>  container is Package;
 
-    // Annotated (List<Annotation> getAnnotations();)
-
     shared actual default
     String qualifiedName
         =>  qualifiedNameMemo

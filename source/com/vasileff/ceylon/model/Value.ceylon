@@ -43,5 +43,6 @@ class Value(container, name, typeLG, refinedDeclaration = null, isShared = false
 
     shared actual
     String string
-        =>  "value ``partiallyQualifiedNameWithTypeParameters`` => ``type.string``";
+        =>  "value ``partiallyQualifiedNameWithTypeParameters`` => \
+             ``type.qualifiedNameWithTypeArguments``";
 }

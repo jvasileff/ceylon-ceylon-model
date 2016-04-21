@@ -8,7 +8,7 @@ class UnionType(caseTypes, unit) extends TypeDeclaration() {
     shared actual Type? extendedType => unit.anythingDeclaration.type;
     shared actual String name => type.string;
     shared actual Null qualifier => null;
-    shared actual String qualifiedName => type.qualifiedString;
+    shared actual String qualifiedName => type.qualifiedNameWithTypeArguments;
     shared actual Null refinedDeclaration => null;
     shared actual [] satisfiedTypes => [];
     shared actual Null selfType => null;

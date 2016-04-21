@@ -9,10 +9,4 @@ class InterfaceAlias(extendedType) extends Interface() {
 
     shared actual
     Boolean canEqual(Object other) => other is InterfaceAlias;
-
-    shared actual
-    String string {
-        // TODO include type parameters of this and all containers.
-        return "interface ``qualifiedName``";
-    }
 }

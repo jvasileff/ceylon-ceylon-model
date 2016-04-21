@@ -86,8 +86,6 @@ class TypeParameter(
         =>  other is TypeParameter;
 
     shared actual
-    String string {
-        // TODO include type parameters of all containers
-        return "given ``qualifiedName``";
-    }
+    String string
+        =>  "given ``partiallyQualifiedNameWithTypeParameters``";
 }

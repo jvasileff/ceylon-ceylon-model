@@ -29,8 +29,6 @@ class Setter(getter, refinedDeclaration = null, isActual = false, isDeprecated =
         => other is Setter;
 
     shared actual
-    String string {
-        // TODO include type parameters of all containers
-        return "assign ``qualifiedName``";
-    }
+    String string
+        =>  "assign ``partiallyQualifiedNameWithTypeParameters``";
 }

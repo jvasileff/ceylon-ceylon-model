@@ -60,6 +60,24 @@ class Declaration() of TypeDeclaration | TypedDeclaration extends Element() {
                 case (is Package) container.qualifiedName + "::" + name
                 else container.qualifiedName + "." + name);
 
+    shared
+    String partiallyQualifiedNameWithTypeParameters {
+        value sb = StringBuilder();
+
+        if (is Declaration container = container) {
+            sb.append(container.partiallyQualifiedNameWithTypeParameters);
+            sb.appendCharacter('.');
+        }
+
+        sb.append(name);
+
+        if (is Generic self = this) {
+            sb.append(self.typeParametersAsString);
+        }
+
+        return sb.string;
+    }
+
     "Is this declaration a member in the strict language spec sense of the word? That
      is, is it a polymorphic kind of declaration (an attribute, method, or class)"
     shared

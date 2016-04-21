@@ -42,8 +42,6 @@ class Value(container, name, typeLG, refinedDeclaration = null, isShared = false
     Boolean canEqual(Object other) => other is Value;
 
     shared actual
-    String string {
-        // TODO include type parameters of all containers
-        return "value ``qualifiedName`` => ``type.string``";
-    }
+    String string
+        =>  "value ``partiallyQualifiedNameWithTypeParameters`` => ``type.string``";
 }

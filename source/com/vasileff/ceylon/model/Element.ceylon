@@ -26,7 +26,4 @@ class Element() of Declaration satisfies Scope {
             addMember(member);
         }
     }
-
-    shared actual formal
-    String string;
 }

@@ -72,10 +72,4 @@ class InterfaceDefinition(
 
         return false;
     }
-
-    shared actual
-    String string {
-        // TODO include type parameters of this and all containers.
-        return "interface ``qualifiedName``";
-    }
 }

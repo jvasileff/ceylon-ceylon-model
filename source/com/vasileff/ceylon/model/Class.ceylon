@@ -5,4 +5,8 @@ class Class()
         satisfies Functional {
 
     shared formal Boolean isAbstract;
+
+    shared actual
+    String string
+        =>  "class ``partiallyQualifiedNameWithTypeParameters````valueParametersAsString``";
 }

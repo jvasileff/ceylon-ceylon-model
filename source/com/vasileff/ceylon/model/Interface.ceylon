@@ -5,4 +5,8 @@ class Interface()
 
     shared actual Boolean isAnonymous => false;
     shared actual Boolean isNamed => true;
+
+    shared actual
+    String string
+        =>  "interface ``partiallyQualifiedNameWithTypeParameters``";
 }

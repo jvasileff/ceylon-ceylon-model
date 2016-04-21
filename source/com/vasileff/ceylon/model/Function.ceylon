@@ -16,4 +16,9 @@ class Function(name, refinedDeclaration, typeLG)
 
     shared actual String name;
     shared actual Function? refinedDeclaration;
+
+    shared actual
+    String string
+        =>  "function ``partiallyQualifiedNameWithTypeParameters````valueParametersAsString`` \
+             => ``type.string``";
 }

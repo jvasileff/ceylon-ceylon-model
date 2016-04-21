@@ -45,5 +45,5 @@ class NothingDeclaration(unit) extends TypeDeclaration() {
 
     shared actual
     String string
-        =>  "class ``qualifiedName``";
+        =>  "class ``partiallyQualifiedNameWithTypeParameters``";
 }

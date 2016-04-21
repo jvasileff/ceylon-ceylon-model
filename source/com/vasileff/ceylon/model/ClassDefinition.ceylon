@@ -126,11 +126,4 @@ class ClassDefinition(
     shared actual
     Boolean canEqual(Object other)
         =>  other is ClassDefinition;
-
-    shared actual
-    String string {
-        // TODO include type parameters of this and all containers, and
-        //      value parameters of this.
-        return "class ``qualifiedName``";
-    }
 }

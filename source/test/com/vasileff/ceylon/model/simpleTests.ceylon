@@ -119,7 +119,7 @@ Module loadLanguageModule() {
 
     value stringArg = Value {
         container = stringDefinition;
-        name = "";
+        name = "characters";
         typeLG(Scope scope)
             =>  scope.unit.getIterableType {
                     scope.unit.characterDeclaration.type;
@@ -562,27 +562,4 @@ void stringParameterType() {
 
     assertTrue(parameterType.isSubtypeOf(iterableObject));
     assertFalse(parameterType.isSupertypeOf(iterableObject));
-}
-
-void runTests({Anything()*} tests) {
-    for (test in tests) {
-        try {
-            test();
-        }
-        catch (Exception | AssertionError e) {
-            process.writeErrorLine("Test failed: ``e.message``");
-        }
-    }
-}
-
-shared
-void runAllTests() {
-    runTests {
-        subtypesObjectNullAnything,
-        subtypesSimpleEntries,
-        substitutionsSimple,
-        memberGenericTypesJson,
-        stringParameterType
-    };
-    print("Tests complete.");
 }

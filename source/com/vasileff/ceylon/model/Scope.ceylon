@@ -74,4 +74,7 @@ interface Scope of Package | Element {
                 (p.getMember(declarationName.first)) // start with declarationName[0]
                 ((d, name) => d?.getMember(name));   // resolve subsequent parts
     }
+
+    shared actual formal
+    String string;
 }

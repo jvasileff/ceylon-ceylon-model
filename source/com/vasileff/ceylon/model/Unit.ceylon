@@ -195,8 +195,12 @@ class Unit(pkg) {
         =>  assertedClass(ceylonLanguagePackage.getMember("Character"));
 
     shared
-    Class emptyDeclaration
-        =>  assertedClass(ceylonLanguagePackage.getMember("Empty"));
+    Interface callableDeclaration
+        =>  assertedInterface(ceylonLanguagePackage.getMember("Callable"));
+
+    shared
+    Interface emptyDeclaration
+        =>  assertedInterface(ceylonLanguagePackage.getMember("Empty"));
 
     shared
     Class entryDeclaration
@@ -259,6 +263,10 @@ class Unit(pkg) {
     shared
     Type getSequentialType(Type elementType)
         =>  sequentialDeclaration.appliedType(null, [elementType]);
+
+    shared
+    Type getSequenceType(Type elementType)
+        =>  sequenceDeclaration.appliedType(null, [elementType]);
 
     shared
     Type? getSequentialElementType(Type type) {

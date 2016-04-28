@@ -20,7 +20,8 @@ import com.vasileff.ceylon.model {
     Type,
     ModuleImport,
     Value,
-    Parameter
+    Parameter,
+    contravariant
 }
 import com.vasileff.ceylon.model.json {
     jsonModelUtil,
@@ -32,6 +33,7 @@ import com.vasileff.ceylon.model.json {
     metatypeTypeParameter
 }
 
+shared
 Module loadLanguageModule() {
 
     value ceylonLanguageModule
@@ -278,6 +280,72 @@ Module loadLanguageModule() {
             };
 
     ceylonLanguagePackage.defaultUnit.addDeclaration(emptyDeclaration);
+
+    // ceylon.language::Tuple
+    value tupleDeclaration
+        =   ClassDefinition {
+                container = ceylonLanguagePackage;
+                name = "Tuple";
+
+                extendedTypeLG(Scope scope)
+                    =>  scope.unit.objectDeclaration.type;
+
+                satisfiedTypesLG = [
+                    (Scope scope)
+                        =>  scope.unit.getSequenceType {
+                                assertedTypeParameter {
+                                        scope.getMember("Element");
+                                }.type;
+                            }
+                ];
+            };
+
+    ceylonLanguagePackage.defaultUnit.addDeclaration(tupleDeclaration);
+
+    tupleDeclaration.addMembers {
+        TypeParameter {
+            container = tupleDeclaration;
+            name = "Element";
+            variance = covariant;
+            selfTypeDeclaration = null;
+        },
+        TypeParameter {
+            container = tupleDeclaration;
+            name = "First";
+            variance = covariant;
+            selfTypeDeclaration = null;
+        },
+        TypeParameter {
+            container = tupleDeclaration;
+            name = "Rest";
+            variance = covariant;
+            selfTypeDeclaration = null;
+        }
+    };
+
+    // ceylon.language::Callable
+    value callableDeclaration
+        =   InterfaceDefinition {
+                container = ceylonLanguagePackage;
+                name = "Callable";
+            };
+
+    ceylonLanguagePackage.defaultUnit.addDeclaration(callableDeclaration);
+
+    callableDeclaration.addMembers {
+        TypeParameter {
+            container = callableDeclaration;
+            name = "Return";
+            variance = covariant;
+            selfTypeDeclaration = null;
+        },
+        TypeParameter {
+            container = callableDeclaration;
+            name = "Arguments";
+            variance = contravariant;
+            selfTypeDeclaration = null;
+        }
+    };
 
     return ceylonLanguageModule;
 }

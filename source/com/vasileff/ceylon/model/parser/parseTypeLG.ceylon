@@ -5,4 +5,4 @@ import com.vasileff.ceylon.model {
 
 shared
 Type parseTypeLG(String type)(Scope scope)
-    =>  parseType(scope.unit, type);
+    =>  parseType(type, scope);

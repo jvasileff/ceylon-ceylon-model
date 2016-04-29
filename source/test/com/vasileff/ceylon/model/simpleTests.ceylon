@@ -6,7 +6,6 @@ import ceylon.test {
 }
 
 import com.vasileff.ceylon.model {
-    createType,
     ParameterList,
     TypeParameter,
     covariant,
@@ -15,8 +14,6 @@ import com.vasileff.ceylon.model {
     ClassDefinition,
     NothingDeclaration,
     InterfaceDefinition,
-    typeFromNameLG,
-    Scope,
     Type,
     ModuleImport,
     Value,
@@ -216,40 +213,8 @@ Module loadLanguageModule() {
                 name = "Sequence";
                 // TODO case types
                 satisfiedTypesLG = [
-                    (Scope scope) {
-                        value declaration
-                            =   assertedTypeDeclaration {
-                                    scope.findDeclaration {
-                                        declarationName = ["Sequential"];
-                                    };
-                                };
-                        value elementTp
-                            =   assertedTypeParameter {
-                                    scope.getMember("Element");
-                                };
-                        return createType {
-                            declaration = declaration;
-                            typeArguments = map(zipEntries(
-                                    declaration.typeParameters,
-                                    {elementTp.type}));
-                        };
-                    },
-                    (Scope scope) {
-                        value declaration
-                            =   assertedTypeDeclaration {
-                                    scope.findDeclaration(["Iterable"]);
-                                };
-                        value elementTp
-                            =   assertedTypeParameter {
-                                    scope.getMember("Element");
-                                };
-                        return createType {
-                            declaration = declaration;
-                            typeArguments = map(zipEntries(
-                                    declaration.typeParameters,
-                                    {elementTp.type}));
-                        };
-                    }
+                    parseTypeLG("[Element*]"),
+                    parseTypeLG("{Element+}")
                 ];
             };
 
@@ -270,12 +235,7 @@ Module loadLanguageModule() {
                 container = ceylonLanguagePackage;
                 name = "Empty";
                 // TODO case types
-                satisfiedTypesLG = [
-                    (Scope scope)
-                        =>  scope.unit.getSequentialType {
-                                scope.unit.nothingDeclaration.type;
-                            }
-                ];
+                satisfiedTypesLG = [parseTypeLG("[Nothing*]")];
             };
 
     ceylonLanguagePackage.defaultUnit.addDeclaration(emptyDeclaration);
@@ -285,18 +245,8 @@ Module loadLanguageModule() {
         =   ClassDefinition {
                 container = ceylonLanguagePackage;
                 name = "Tuple";
-
-                extendedTypeLG(Scope scope)
-                    =>  scope.unit.objectDeclaration.type;
-
-                satisfiedTypesLG = [
-                    (Scope scope)
-                        =>  scope.unit.getSequenceType {
-                                assertedTypeParameter {
-                                        scope.getMember("Element");
-                                }.type;
-                            }
-                ];
+                extendedTypeLG = parseTypeLG("Object");
+                satisfiedTypesLG = [parseTypeLG("[Element*]")];
             };
 
     ceylonLanguagePackage.defaultUnit.addDeclaration(tupleDeclaration);

@@ -1,5 +1,4 @@
 import com.vasileff.ceylon.model {
-    Unit,
     Type,
     union,
     intersection,
@@ -8,11 +7,12 @@ import com.vasileff.ceylon.model {
     contravariant,
     covariant,
     TypeDeclaration,
-    unionType
+    unionType,
+    Scope
 }
 
 shared
-Type parseType(Unit unit, String input) {
+Type parseType(String input, Scope scope) {
     variable List<Token> tokens
         =   TokenStream(input)
                 .filter((token) => !token is IgnoredToken)
@@ -72,9 +72,15 @@ Type parseType(Unit unit, String input) {
             }
         }
         case (is Null) {
-            // TODO search unit's imports, not just it's declarations.
+            // FIXME search unit's imports, not just it's declarations.
+            // FIXME search scope's ancestors!
+
+            if (is TypeDeclaration found = scope.getMember(name)) {
+                return found;
+            }
+
             if (is TypeDeclaration found
-                =   unit.declarations.find((d) => d.name == name)) {
+                =   scope.unit.declarations.find((d) => d.name == name)) {
                 return found;
             }
         }
@@ -190,7 +196,7 @@ Type parseType(Unit unit, String input) {
                 }
                 else {
                     throw Exception("type does not exist: ``name`` \
-                                     in ``qualifier else unit``");
+                                     in ``qualifier else scope``");
                 }
             }
 
@@ -221,7 +227,7 @@ Type parseType(Unit unit, String input) {
 
                 expect("DoubleColon");
 
-                value result = unit.mod.findPackage(packageName.string);
+                value result = scope.unit.mod.findPackage(packageName.string);
                 if (!exists result) {
                     throw Exception("package not found: '``packageName.string``'");
                 }
@@ -305,14 +311,14 @@ Type parseType(Unit unit, String input) {
                 // calculate rest
                 switch (variadic)
                 case (is Null) {
-                    result = unit.emptyDeclaration.type;
-                    element = unit.nothingDeclaration.type;
+                    result = scope.unit.emptyDeclaration.type;
+                    element = scope.unit.nothingDeclaration.type;
                 }
                 case (is ProductOp | SumOp) {
                     value declaration
                         =   switch (variadic)
-                            case (is ProductOp) unit.sequentialDeclaration
-                            case (is SumOp) unit.sequenceDeclaration;
+                            case (is ProductOp) scope.unit.sequentialDeclaration
+                            case (is SumOp) scope.unit.sequenceDeclaration;
 
                     assert (exists restType = types.first);
                     result = declaration.appliedType {
@@ -325,16 +331,16 @@ Type parseType(Unit unit, String input) {
 
                 // build the leading part of the tuple
                 for (first in types) {
-                    element = unionType(first, element, unit);
-                    result = unit.tupleDeclaration.appliedType {
+                    element = unionType(first, element, scope.unit);
+                    result = scope.unit.tupleDeclaration.appliedType {
                         null;
                         [element, first, result];
                     };
                     if (defaulted-- > 0) {
                         result = unionType {
                             result;
-                            unit.emptyDeclaration.type;
-                            unit;
+                            scope.unit.emptyDeclaration.type;
+                            scope.unit;
                         };
                     }
                 }
@@ -362,10 +368,10 @@ Type parseType(Unit unit, String input) {
                 expect("LBrace");
                 value type = parseUnionType();
                 value absent = switch(_ = expectAny("ProductOp", "SumOp"))
-                               case (is ProductOp) unit.nullDeclaration.type
-                               else unit.nothingDeclaration.type;
+                               case (is ProductOp) scope.unit.nullDeclaration.type
+                               else scope.unit.nothingDeclaration.type;
                 expect("RBrace");
-                return unit.iterableDeclaration.appliedType(null, [type, absent]);
+                return scope.unit.iterableDeclaration.appliedType(null, [type, absent]);
             }
 
             """
@@ -376,7 +382,7 @@ Type parseType(Unit unit, String input) {
                 case (is LBracket) { // empty or tuple
                     if (tokens[1] is RBracket) {
                         consume(2);
-                        return unit.emptyDeclaration.type;
+                        return scope.unit.emptyDeclaration.type;
                     }
                     else {
                         return parseTupleType();
@@ -408,13 +414,14 @@ Type parseType(Unit unit, String input) {
                     consume();
                     expect("RBracket");
                     variable value type
-                        =   unit.tupleDeclaration.appliedType {
+                        =   scope.unit.tupleDeclaration.appliedType {
                                 null;
-                                [primaryType, primaryType, unit.emptyDeclaration.type];
+                                [primaryType, primaryType,
+                                 scope.unit.emptyDeclaration.type];
                             };
                     for (_ in 0:size-1) {
                         type
-                            =   unit.tupleDeclaration.appliedType {
+                            =   scope.unit.tupleDeclaration.appliedType {
                                     null;
                                     [primaryType, primaryType, type];
                                  };
@@ -424,7 +431,7 @@ Type parseType(Unit unit, String input) {
                 else {
                     // SequenceType[]
                     expect("RBracket");
-                    return unit.getSequentialType(primaryType);
+                    return scope.unit.getSequentialType(primaryType);
                 }
             }
 
@@ -433,7 +440,7 @@ Type parseType(Unit unit, String input) {
             """
             Type parseOptionalType(Type primaryType) {
                 expect("QuestionMark");
-                return union([primaryType, unit.nullDeclaration.type], unit);
+                return union([primaryType, scope.unit.nullDeclaration.type], scope.unit);
             }
 
             """
@@ -464,11 +471,11 @@ Type parseType(Unit unit, String input) {
                         }
                     }
                     else {
-                        arguments = unit.emptyDeclaration.type;
+                        arguments = scope.unit.emptyDeclaration.type;
                     }
                     expect("RParen");
 
-                    return unit.callableDeclaration.appliedType {
+                    return scope.unit.callableDeclaration.appliedType {
                         null;
                         [primaryType, arguments];
                     };
@@ -507,7 +514,7 @@ Type parseType(Unit unit, String input) {
                     while (tokens.first is IntersectionOp) {
                         types.follow(parsePrimaryType());
                     }
-                    return intersection(types.sequence().reversed, unit);
+                    return intersection(types.sequence().reversed, scope.unit);
                 }
             }
 
@@ -521,7 +528,7 @@ Type parseType(Unit unit, String input) {
                 while (tokens.first is UnionOp) {
                     types.follow(parseIntersectionType());
                 }
-                return union(types.sequence().reversed, unit);
+                return union(types.sequence().reversed, scope.unit);
             }
         }
 
@@ -531,7 +538,7 @@ Type parseType(Unit unit, String input) {
         if (tokens.first is EntryOp) {
             consume();
             Type type2 = parseUnionType();
-            return unit.entryDeclaration.appliedType(null, {type, type2});
+            return scope.unit.entryDeclaration.appliedType(null, {type, type2});
         }
 
         return type;

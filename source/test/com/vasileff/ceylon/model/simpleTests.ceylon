@@ -15,7 +15,7 @@ import com.vasileff.ceylon.model {
     ClassDefinition,
     NothingDeclaration,
     InterfaceDefinition,
-    typeFromName,
+    typeFromNameLG,
     Scope,
     Type,
     ModuleImport,
@@ -30,7 +30,11 @@ import com.vasileff.ceylon.model.json {
     keyTypeParams,
     keyModule,
     keyMetatype,
-    metatypeTypeParameter
+    metatypeTypeParameter,
+    typeFromJson
+}
+import com.vasileff.ceylon.model.parser {
+    parseTypeLG
 }
 
 shared
@@ -57,8 +61,8 @@ Module loadLanguageModule() {
             name = "Anything";
             extendedTypeLG = null;
             caseTypesLG = [
-                typeFromName(["Object"]),
-                typeFromName(["Null"])
+                parseTypeLG("Object"),
+                parseTypeLG("Null")
             ];
         };
     };
@@ -68,7 +72,7 @@ Module loadLanguageModule() {
         ClassDefinition {
             container = ceylonLanguagePackage;
             name = "Object";
-            extendedTypeLG = typeFromName(["Anything"]);
+            extendedTypeLG = parseTypeLG("Anything");
             isAbstract = true;
         };
     };
@@ -86,8 +90,8 @@ Module loadLanguageModule() {
         ClassDefinition {
             container = ceylonLanguagePackage;
             name = "Basic";
-            extendedTypeLG = typeFromName(["Object"]);
-            satisfiedTypesLG = [typeFromName(["Identifiable"])];
+            extendedTypeLG = parseTypeLG("Object");
+            satisfiedTypesLG = [parseTypeLG("Identifiable")];
             isAbstract = true;
         };
     };
@@ -97,7 +101,7 @@ Module loadLanguageModule() {
         ClassDefinition {
             container = ceylonLanguagePackage;
             name = "Null";
-            extendedTypeLG = typeFromName(["Anything"]);
+            extendedTypeLG = parseTypeLG("Anything");
         };
     };
 
@@ -106,7 +110,7 @@ Module loadLanguageModule() {
         ClassDefinition {
             container = ceylonLanguagePackage;
             name = "Character";
-            extendedTypeLG = typeFromName(["Object"]);
+            extendedTypeLG = parseTypeLG("Object");
         };
     };
 
@@ -114,7 +118,7 @@ Module loadLanguageModule() {
     value stringDefinition = ClassDefinition {
         container = ceylonLanguagePackage;
         name = "String";
-        extendedTypeLG = typeFromName(["Object"]);
+        extendedTypeLG = parseTypeLG("Object");
     };
 
     ceylonLanguagePackage.defaultUnit.addDeclaration(stringDefinition);
@@ -122,10 +126,7 @@ Module loadLanguageModule() {
     value stringArg = Value {
         container = stringDefinition;
         name = "characters";
-        typeLG(Scope scope)
-            =>  scope.unit.getIterableType {
-                    scope.unit.characterDeclaration.type;
-                };
+        typeLG = parseTypeLG("{Character*}");
     };
 
     stringDefinition.addMembers { stringArg };
@@ -138,7 +139,7 @@ Module loadLanguageModule() {
         =   ClassDefinition {
                 container = ceylonLanguagePackage;
                 name = "Entry";
-                extendedTypeLG = typeFromName(["Object"]);
+                extendedTypeLG = parseTypeLG("Object");
                 //parameterLists = [ParameterList.empty]; // TODO key, item
             };
 
@@ -148,7 +149,7 @@ Module loadLanguageModule() {
         TypeParameter {
             container = entryDeclaration;
             name = "Key";
-            satisfiedTypesLG = { typeFromName(["Object"]) };
+            satisfiedTypesLG = [parseTypeLG("Object")];
             variance = covariant;
             selfTypeDeclaration = null;
         },
@@ -176,17 +177,15 @@ Module loadLanguageModule() {
             name = "Element";
             variance = covariant;
             selfTypeDeclaration = null;
-            defaultTypeArgumentLG = typeFromName(["Anything"]);
+            defaultTypeArgumentLG = parseTypeLG("Anything");
         },
         TypeParameter {
             container = iterableDeclaration;
             name = "Absent";
             variance = covariant;
             selfTypeDeclaration = null;
-            satisfiedTypesLG = [
-                typeFromName(["Null"])
-            ];
-            defaultTypeArgumentLG = typeFromName(["Null"]);
+            satisfiedTypesLG = [parseTypeLG("Null")];
+            defaultTypeArgumentLG = parseTypeLG("Null");
         }
     };
 
@@ -386,13 +385,13 @@ void subtypesSimpleEntries() {
     value objectAnything = newEntry(objectType, anythingType);
     value objectObject = newEntry(objectType, objectType);
     value stringObject
-        =   jsonModelUtil.loadType {
-                ceylonLanguagePackage;
+        =   typeFromJson {
                 parseObject {
                     """{"md":"$", "nm":"Entry", "pk":"$", "tp":[
                             {"md":"$", "mt":"tp", "nm":"String", "pk":"$"},
                             {"md":"$", "mt":"tp", "nm":"Object", "pk":"$"}]}""";
                 };
+                ceylonLanguagePackage;
             };
 
     assertTrue(objectAnything.isSupertypeOf(objectObject));

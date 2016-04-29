@@ -1234,7 +1234,7 @@ Type createType(
                  varianceOverrides, isTypeConstructor, typeConstructorParameter);
 
 shared
-Type typeFromName(
+Type typeFromNameLG(
         {String+} declarationName,
         String? moduleName = null,
         String? packageName = null,

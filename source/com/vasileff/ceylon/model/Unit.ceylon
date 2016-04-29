@@ -250,7 +250,7 @@ class Unit(pkg) {
 
     shared
     Type getIterableType(Type elementType, Boolean nonEmpty = false)
-        =>  sequentialDeclaration.appliedType {
+        =>  iterableDeclaration.appliedType {
                 null;
                 [
                     elementType,

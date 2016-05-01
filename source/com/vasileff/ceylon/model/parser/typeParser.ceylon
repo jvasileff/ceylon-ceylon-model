@@ -13,6 +13,7 @@ import com.vasileff.ceylon.model {
 
 shared
 Type parseType(String input, Scope scope) {
+
     variable List<Token> tokens
         =   TokenStream(input)
                 .filter((token) => !token is IgnoredToken)
@@ -59,33 +60,14 @@ Type parseType(String input, Scope scope) {
         return token;
     }
 
-    TypeDeclaration? lookup(Package | Type | Null qualifier, String name) {
-        switch (qualifier)
-        case (is Package) {
-            if (is TypeDeclaration d = qualifier.findDeclaration([name])) {
-                return d;
-            }
-        }
-        case (is Type) {
-            if (is TypeDeclaration d = qualifier.declaration.getMember(name)) {
-                return d;
-            }
-        }
-        case (is Null) {
-            // FIXME search unit's imports, not just it's declarations.
-            // FIXME search scope's ancestors!
-
-            if (is TypeDeclaration found = scope.getMember(name)) {
-                return found;
-            }
-
-            if (is TypeDeclaration found
-                =   scope.unit.declarations.find((d) => d.name == name)) {
-                return found;
-            }
-        }
-        return null;
-    }
+    TypeDeclaration? lookup(Package | Type | Null qualifier, String name)
+        =>  if (is TypeDeclaration declaration
+                =   switch (qualifier)
+                    case (is Package) qualifier.findDeclaration([name])
+                    case (is Type) qualifier.declaration.getMember(name, scope.unit)
+                    case (is Null) scope.getBase(name, scope.unit))
+            then declaration
+            else null;
 
     """
        Type: UnionType | EntryType
@@ -512,7 +494,8 @@ Type parseType(String input, Scope scope) {
                 else {
                     variable {Type+} types = [type];
                     while (tokens.first is IntersectionOp) {
-                        types.follow(parsePrimaryType());
+                        consume();
+                        types = types.follow(parsePrimaryType());
                     }
                     return intersection(types.sequence().reversed, scope.unit);
                 }

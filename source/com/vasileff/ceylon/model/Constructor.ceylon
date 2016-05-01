@@ -34,6 +34,11 @@ class Constructor(
     shared actual Boolean isNamed => true;
     shared actual Boolean isStatic => false;
 
+    shared actual default
+    Declaration? getMember(String name, Unit? unit)
+        // don't search supertypes (constructor's don't have supertypes)
+        =>  getDirectMember(name);
+
     shared actual
     Boolean inherits(TypeDeclaration that)
         // TODO does this make any sense? It checks a chain of constructors, and then,

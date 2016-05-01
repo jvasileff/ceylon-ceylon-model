@@ -45,7 +45,7 @@ class Declaration() of TypeDeclaration | TypedDeclaration extends Element() {
     Boolean isNamed;
 
     "Is the container a [[Package]]?"
-    shared
+    shared default
     Boolean isToplevel
         =>  container is Package;
 
@@ -54,7 +54,6 @@ class Declaration() of TypeDeclaration | TypedDeclaration extends Element() {
         =>  qualifiedNameMemo
             else (qualifiedNameMemo =
                 switch (container = this.container)
-                case (is Null) name
                 case (is Package) container.qualifiedName + "::" + name
                 else container.qualifiedName + "." + name);
 
@@ -113,6 +112,13 @@ class Declaration() of TypeDeclaration | TypedDeclaration extends Element() {
     shared formal
     Boolean canEqual(Object other);
 
+    "Resolvable members are members that are not [[Setter]]s and not
+     [[isAnonymous]]."
+    shared
+    Boolean isResolvable
+        =>  !this is Setter        // return getters, not setters
+            && !this.isAnonymous;  // don't return types for 'object's
+
     shared actual default
     Boolean equals(Object other) {
         if (!is Declaration other) {
@@ -151,9 +157,7 @@ class Declaration() of TypeDeclaration | TypedDeclaration extends Element() {
         }
 
         variable value result = 17;
-        if (exists container = container) {
-            result += 37 * result + container.hash;
-        }
+        result += 37 * result + container.hash;
         result += 37 * result + (qualifier?.hash else 0);
         result += 37 * result + name.hash;
         result += 37 * result + (this is Setter).hash;

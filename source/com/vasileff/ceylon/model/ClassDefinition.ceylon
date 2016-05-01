@@ -13,12 +13,9 @@ class ClassDefinition(
         extends Class()
         satisfies Functional {
 
-    // TODO parameterLists initialization: they hold declarations that are also members.
-    //      So, make mutable, perhaps variable. Perform checks for members on assignment?
-
     {Type | Type(Scope)*} satisfiedTypesLG;
     {Type | Type(Scope)*} caseTypesLG;
-    Type | Type(ClassDefinition) | Null extendedTypeLG;
+    Type | Type(Scope) | Null extendedTypeLG;
 
     variable [ParameterList] _parameterLists = [ParameterList.empty];
 
@@ -26,23 +23,59 @@ class ClassDefinition(
     variable [Type*]? caseTypesMemo = null;
     variable Type? extendedTypeMemo = null;
 
+    "Used to avoid circularities, particularly with Scope.getBase() attempting to search
+     inherited members while lazily generating the supertypes that define inheritance.
+
+     When `true`, supertype members will be effectively not in scope."
+    variable value definingInheritance = false;
+
     shared actual
-    Type[] satisfiedTypes
-        =>  satisfiesTypesMemo else (satisfiesTypesMemo
-            =   satisfiedTypesLG.collect(toType(this)));
+    Type? extendedType {
+        if (exists result = extendedTypeMemo) {
+            return result;
+        }
+        else if (definingInheritance) {
+            return null;
+        }
+        else {
+            try {
+                definingInheritance = true;
+                return extendedTypeMemo
+                    =   switch (extendedTypeLG)
+                        case (is Null) null
+                        case (is Type) (extendedTypeMemo = extendedTypeLG)
+                        else (extendedTypeMemo = extendedTypeLG(this));
+            }
+            finally {
+                definingInheritance = false;
+            }
+        }
+    }
+
+    shared actual
+    Type[] satisfiedTypes {
+        if (exists result = satisfiesTypesMemo) {
+            return result;
+        }
+        else if (definingInheritance) {
+            return [];
+        }
+        else {
+            try {
+                definingInheritance = true;
+                return satisfiesTypesMemo
+                    =   satisfiedTypesLG.collect(toType(this));
+            }
+            finally {
+                definingInheritance = false;
+            }
+        }
+    }
 
     shared actual
     Type[] caseTypes
         =>  caseTypesMemo else (caseTypesMemo
             =   caseTypesLG.collect(toType(this)));
-
-    shared actual
-    Type? extendedType
-        =>  extendedTypeMemo else (
-                switch (extendedTypeLG)
-                case (is Null) null
-                case (is Type) (extendedTypeMemo = extendedTypeLG)
-                else (extendedTypeMemo = extendedTypeLG(this)));
 
     shared actual Value[] caseValues;
     shared actual Scope container;

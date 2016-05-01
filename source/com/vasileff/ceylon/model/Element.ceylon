@@ -13,6 +13,12 @@ class Element() of Declaration satisfies Scope {
     shared actual formal
     Unit unit;
 
+    shared actual formal
+    Scope container;
+
+    shared actual default
+    Scope scope => container;
+
     shared actual // Better would be to have an unmodifiable list multimap wrapper
     ListMultimap<String, Declaration> members => memberMap;
 

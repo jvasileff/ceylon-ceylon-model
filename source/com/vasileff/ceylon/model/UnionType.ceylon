@@ -31,6 +31,10 @@ class UnionType(caseTypes, unit) extends TypeDeclaration() {
     }
 
     shared actual
+    Boolean isToplevel
+        =>  false;
+
+    shared actual
     Boolean inherits(TypeDeclaration that) {
         if (that.isAnything) {
             return true;

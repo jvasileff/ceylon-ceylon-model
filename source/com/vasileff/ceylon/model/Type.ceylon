@@ -1,8 +1,7 @@
 import ceylon.collection {
     HashSet,
     ArrayList,
-    HashMap,
-    unlinked
+    HashMap
 }
 
 import com.vasileff.ceylon.model.internal {
@@ -165,7 +164,7 @@ class Type() extends Reference() {
         }
         else if (that.isIntersection) {
             // Any reason for lack of symmetry with prior case?
-            return that.satisfiedTypes.any((st) => isSubtypeOf(st));
+            return that.satisfiedTypes.every((st) => isSubtypeOf(st));
         }
         else if (isTypeConstructor && that.isTypeConstructor) {
             return  nothing; // isSubtypeOfTypeConstructor(that);
@@ -280,10 +279,13 @@ class Type() extends Reference() {
             // The ceylon-model note reads...:
             // now let's call the two most difficult methods
             // in the whole code base:
-            value result = getPrincipalInstantiationFromCases {
-                criteria;
-                getPrincipalInstantiation(criteria);
-            };
+            value result
+                =   getPrincipalInstantiationFromCases {
+                        criteria;
+                        getPrincipalInstantiation {
+                            criteria;
+                        };
+                    };
 
             if (exists result, !result.isNothing) {
                 return result;
@@ -373,7 +375,9 @@ class Type() extends Reference() {
             else if (previous[0].isSubtypeOf(candidate)) {
                 // just ignore this candidate
             }
-            else if (candidate.isSubtypeOf(previous[1])) {
+            // FIXME ceylon-model uses previous[1], but that seems wrong. If we stick
+            //       with previous[0], get rid of the tuple (lowerBound) altogether.
+            else if (candidate.isSubtypeOf(previous[0])) {
                 resultAndLowerBound = [candidate, candidate];
             }
             else {
@@ -640,6 +644,7 @@ class Type() extends Reference() {
                 // https://github.com/ceylon/ceylon/issues/4429
                 && !qualifyingType exists;
 
+    shared
     Type? extendedType
         =>  let (et = declaration.extendedType)
             if (exists et, !et.typeArguments.empty)
@@ -910,18 +915,10 @@ class Type() extends Reference() {
         return false;
     }
 
-    shared
-    interface Criteria {
-        shared formal Boolean satisfiesType(TypeDeclaration type);
-        shared formal Boolean memberLookup;
-    }
-
-    // TODO rename to "ExactCriteria", to describe what it does rather than
-    //      where it's used? But... there is an ExactCriteria that does something else?
+    // TODO do we really need a Criteria class?
     class SupertypeCriteria(TypeDeclaration td) satisfies Criteria {
         shared actual Boolean satisfiesType(TypeDeclaration satisfiesTd)
-            =>  !satisfiesTd is UnionType
-                    && !satisfiesTd is IntersectionType
+            =>  !satisfiesTd is UnionType | IntersectionType
                     && satisfiesTd.equals(td);
 
         shared actual Boolean memberLookup => false;
@@ -1286,3 +1283,4 @@ class TypeImpl(
     shared actual Map<TypeParameter,Variance> varianceOverrides;
     shared actual TypeParameter? typeConstructorParameter;
 }
+

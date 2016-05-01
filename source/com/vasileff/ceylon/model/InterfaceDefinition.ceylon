@@ -18,9 +18,30 @@ class InterfaceDefinition(
     variable [Type*]? satisfiesTypesMemo = null;
     variable [Type*]? caseTypesMemo = null;
 
-    shared actual Type[] satisfiedTypes
-        =>  satisfiesTypesMemo else (satisfiesTypesMemo
-            =   satisfiedTypesLG.collect(toType(this)));
+    "Used to avoid circularities, particularly with Scope.getBase() attempting to search
+     inherited members while lazily generating the supertypes that define inheritance.
+
+     When `true`, supertype members will be effectively not in scope."
+    variable value definingInheritance = false;
+
+    shared actual Type[] satisfiedTypes {
+        if (exists result = satisfiesTypesMemo) {
+            return result;
+        }
+        else if (definingInheritance) {
+            return [];
+        }
+        else {
+            try {
+                definingInheritance = true;
+                return satisfiesTypesMemo
+                    =   satisfiedTypesLG.collect(toType(this));
+            }
+            finally {
+                definingInheritance = false;
+            }
+        }
+    }
 
     shared actual Type[] caseTypes
         =>  caseTypesMemo else (caseTypesMemo

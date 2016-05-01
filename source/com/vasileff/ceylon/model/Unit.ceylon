@@ -156,6 +156,16 @@ class Unit(pkg) {
     Integer removeDeclaration(Declaration d)
         =>  declarations.remove(d);
 
+    shared
+    Declaration? getImportedDeclaration(String name)
+        // TODO manage imports
+        =>  null;
+
+    shared
+    Declaration? getImportedMember(TypeDeclaration type, String name)
+        // TODO manage imports; search for nonambiguous import alias for 'type'
+        =>  null;
+
     ///////////////////////////////////
     //
     // Utilities
@@ -220,8 +230,9 @@ class Unit(pkg) {
 
     shared
     NothingDeclaration nothingDeclaration {
-        assert (is NothingDeclaration n = ceylonLanguagePackage.getMember("Nothing"));
-        return n;
+        assert (is NothingDeclaration declaration
+            =   ceylonLanguagePackage.getMember("Nothing"));
+        return declaration;
     }
 
     shared
@@ -271,7 +282,7 @@ class Unit(pkg) {
     shared
     Type? getSequentialElementType(Type type) {
         if (exists st = type.getSupertype(sequentialDeclaration)) {
-            assert (exists elementType = st.typeArguments[0]);
+            assert (exists elementType = st.typeArgumentList.first);
             if (elementType.isTuple && elementType.isUnion) {
                 // total hack to accommodate the fact that tuple types are created
                 // with unsimplified unions

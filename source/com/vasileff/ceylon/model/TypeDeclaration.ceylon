@@ -38,7 +38,7 @@ class TypeDeclaration()
                 if (is TypeParameter member)
                   member };
 
-     "The type of the declaration as seen from within the  body of the declaration itself.
+     "The type of the declaration as seen from within the body of the declaration itself.
 
       Note that for certain special types which we happen to know don't have type
       arguments, we use this as a convenience method to quickly get a produced type for
@@ -110,6 +110,74 @@ class TypeDeclaration()
             // ignore
         }
         return results;
+    }
+
+    shared actual default
+    Declaration? getMember(String name, Unit? unit) {
+        // TODO resolve import aliases for members of supertypes
+        //      (ceylon-model doesn't do this yet either)
+
+        // Search unit for import aliases
+        if (exists member = unit?.getImportedMember(this, name)) {
+            return member;
+        }
+
+        // Search shared and unshared direct members
+        value directMember = getDirectMember(name);
+        if (exists directMember, directMember.isShared) {
+            // It's shared, so we can return it (don't return unshared members yet, to
+            // avoid masking inherited shared members.)
+            return directMember;
+        }
+
+        if (exists supertypeMember = getSupertypeDeclaration(name)) {
+            return supertypeMember;
+        }
+
+        // Return the non-shared member, if found, to allow the caller to provide a good
+        // error message.
+        return directMember;
+    }
+
+    Declaration? getSupertypeDeclaration(String name) {
+        object exactCriteria satisfies Criteria {
+            shared actual
+            Boolean memberLookup => true;
+
+            shared actual
+            Boolean satisfiesType(TypeDeclaration type) {
+                // do not direct members of this scope
+                if (type == outer) {
+                    return false;
+                }
+
+                value member = type.getDirectMember(name);
+                if (exists member, member.isShared) {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        value superType = type.getSupertype(exactCriteria);
+
+        if (!exists superType) {
+            // not found
+            return null;
+        }
+        else if (superType.isUnknown) {
+            // we're dealing with an ambiguous member of an intersection type
+            // todo: this is pretty fragile - it depends upon the fact that
+            //       getSupertype() just happens to return an UnknownType instead of
+            //       null in this case
+            return null;
+        }
+        else {
+            // we got exactly one uniquely-defined member
+            assert (exists result = superType.declaration.getDirectMember(name));
+            return result;
+        }
     }
 
     shared

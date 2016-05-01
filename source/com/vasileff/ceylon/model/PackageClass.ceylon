@@ -34,6 +34,9 @@ class Package(name, mod, Unit(Package)? unitLG = null) satisfies Scope {
     shared actual
     Null container => null;
 
+    shared actual
+    Null scope => null;
+
     "An internal function that should not be called outside this package. This function
      marks the member cache dirty if the passed in value is `true`, and returns the
      passed in value. "
@@ -103,6 +106,21 @@ class Package(name, mod, Unit(Package)? unitLG = null) satisfies Scope {
                       for (declaration in unit.declarations)
                         declaration.name -> declaration
                 });
+
+    shared actual
+    Declaration? getBase(String name, Unit unit) {
+        // this implements the rule that imports hide toplevel members of a package
+        if (exists declaration = unit.getImportedDeclaration(name)) {
+            return declaration;
+        }
+
+        if (exists declaration = getDirectMember(name)) {
+            return declaration;
+        }
+
+        // finally, try the implicitly imported language module
+        return unit.ceylonLanguagePackage.getDirectMember(name);
+    }
 
     shared actual
     String string

@@ -1,6 +1,9 @@
 import com.vasileff.ceylon.structures {
     ListMultimap
 }
+import ceylon.language.meta.declaration {
+    ConstructorDeclaration
+}
 
 shared
 interface Scope of Package | Element {
@@ -12,6 +15,14 @@ interface Scope of Package | Element {
      while) each have their own 'fake' scope."
     shared formal
     Scope? container;
+
+    "The scope of the element, taking into account that conditions (in an assert, if, or
+     while) each have their own 'fake' scope.
+
+     Since `ConditionScope`s are not yet supported, [[scope]] is an alias for
+     [[container]]."
+    shared formal
+    Scope? scope;
 
     shared formal
     Unit unit;
@@ -25,24 +36,88 @@ interface Scope of Package | Element {
     shared formal
     ListMultimap<String, Declaration> members;
 
-    function isResolvable(Declaration d)
-        =>  !d is Setter        // return getters, not setters
-            && !d.isAnonymous;  // don't return types for 'object's
+    "Search for a resolvable declaration with the given [[name]].
 
-    "Return the first resolvable member found matching the given [[name]]. Resolvable
-     members are members that are not [[Setter]]s and not [[Declaration.isAnonymous]]."
-    shared default
-    Declaration? getMember(String name)
-        =>  members.get(name).find(isResolvable);
+     Shared and unshared members will be searched, but not inherited members, members of
+     ancestor scopes, or imports.
+
+     Import aliases will not be resolved.
+
+     Note that if there are multiple declarations with the same name (as may be the case
+     with native headers and implementations), the first one that is found will be
+     returned."
+    shared see(`value Declaration.isResolvable`)
+    Declaration? getDirectMember(String name)
+        =>  members.get(name).find(Declaration.isResolvable);
+
+    "Search for a resolvable declaration with the given [[name]].
+
+     The following will be searched:
+
+        - shared and unshared direct members
+        - inherited members
+
+     The following will not be searched:
+
+        - members of ancestor scopes
+        - imports
+
+     Import aliases for members will be resolved if [[unit]] is provided.
+
+     Note that if there are multiple declarations with the same name (as may be the case
+     with native headers and implementations), the first one that is found will be
+     returned."
+    shared default see(`value Declaration.isResolvable`)
+    Declaration? getMember(String name, Unit? unit = null)
+        // Note: TypeDeclaration.getMember considers import aliases and inherited
+        //       members, which are not applicable to non-TypeDeclarations.
+        =>  getDirectMember(name);
+
+    "Search for a resolvable declaration with the given [[name]].
+
+     The following will be searched:
+
+        - shared and unshared direct members
+        - inherited members
+        - members of ancestor scopes, including inherited
+        - imports
+
+     Import aliases for members will not be resolved.
+
+     Note that if there are multiple declarations with the same name (as may be the case
+     with native headers and implementations), the first one that is found will be
+     returned."
+    shared default see(`value Declaration.isResolvable`)
+    Declaration? getBase(String name, Unit unit) {
+        // shared and unshared direct members
+        if (exists member = getDirectMember(name)) {
+            return member;
+        }
+
+        // inherited members (would be redundant for non-TypeDeclarations)
+        if (this is TypeDeclaration && !this is ConstructorDeclaration,
+                exists member = getMember(name, null)) {
+            return member;
+        }
+
+        // shared and unshared direct members & inherited members of ancestors
+        return scope?.getBase(name, unit);
+    }
 
     "Find a declaration by name.
 
      The package in which to search will be determined as follows:
 
-     If [[moduleName]] is not null, search for [[packageName]] within a visible
-     module with the name [[moduleName]], if any. If [[packageName]] is null, use the
-     current package. If [[packageName]] is null and [[moduleName]] is not null,
-     [[moduleName]] will be ignored (the current package will be used)."
+        - If [[packageName]] is null, use the current package.
+
+        - If [[packageName]] is not null and [[moduleName]] is null, search for
+          [[packageName]] within the current module.
+
+        - If [[moduleName]] is not null, search for [[packageName]] within a visible
+          module with the name [[moduleName]], if any.
+
+        - *Unless* [[packageName]] is null and [[moduleName]] is not null, in which
+          case null will be returned."
     shared
     Declaration? findDeclaration(
             "The name parts of the declaration to find."
@@ -56,23 +131,26 @@ interface Scope of Package | Element {
         //      distinguish declarations that have the same name and nearest ancestor
         //      declaration.
 
-        "The package to search."
-        value p
-            =   if (exists packageName) then
-                    let (m = if (exists moduleName)
-                             then mod.findModule(moduleName)
-                             else mod)
-                    m?.findDirectPackage(packageName)
-                else
-                    pkg;
+        if (!packageName exists && moduleName exists) {
+            return null;
+        }
 
-        if (!exists p) {
+        "The package to search."
+        value pkg
+            =   if (exists packageName)
+                then (if (exists moduleName)
+                      then mod.findModule(moduleName)
+                      else mod)
+                     ?.findDirectPackage(packageName)
+                else this.pkg;
+
+        if (!exists pkg) {
             return null;
         }
 
         return declarationName.rest.fold
-                (p.getMember(declarationName.first)) // start with declarationName[0]
-                ((d, name) => d?.getMember(name));   // resolve subsequent parts
+            (pkg.getDirectMember(declarationName.first)) // start with declarationName[0]
+            ((d, name) => d?.getDirectMember(name));     // resolve subsequent parts
     }
 
     shared actual formal

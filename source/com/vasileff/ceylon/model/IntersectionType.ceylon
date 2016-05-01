@@ -40,6 +40,10 @@ class IntersectionType(satisfiedTypes, unit) extends TypeDeclaration() {
     }
 
     shared actual
+    Boolean isToplevel
+        =>  false;
+
+    shared actual
     Boolean inherits(TypeDeclaration that)
         =>  that.isAnything || satisfiedTypes.any((st) => st.declaration.inherits(that));
 

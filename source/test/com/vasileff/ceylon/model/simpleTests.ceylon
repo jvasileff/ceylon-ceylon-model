@@ -191,7 +191,10 @@ Module loadLanguageModule() {
         =   InterfaceDefinition {
                 container = ceylonLanguagePackage;
                 name = "Sequential";
-                // TODO satisfies sequential<Element> & iterable<Element>
+                satisfiedTypesLG = [
+                    parseTypeLG("{Element*}")
+                ];
+                // TODO satisfies List & Ranged, not iterable
                 // TODO cases Empty & Sequence
             };
 

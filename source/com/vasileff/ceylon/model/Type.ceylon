@@ -8,7 +8,7 @@ import com.vasileff.ceylon.model.internal {
     eq
 }
 
-shared abstract
+shared abstract sealed
 class Type() extends Reference() {
 
     shared actual formal TypeDeclaration declaration;
@@ -1219,7 +1219,6 @@ class Type() extends Reference() {
     }
 }
 
-shared
 Type createType(
         TypeDeclaration declaration,
         Map<TypeParameter, Type> typeArguments = emptyMap,
@@ -1230,33 +1229,6 @@ Type createType(
     =>  TypeImpl(declaration, qualifyingType, typeArguments,
                  varianceOverrides, isTypeConstructor, typeConstructorParameter);
 
-shared
-Type typeFromNameLG(
-        {String+} declarationName,
-        String? moduleName = null,
-        String? packageName = null,
-        Type? qualifyingType = null,
-        Map<TypeParameter, Type> typeArguments = emptyMap,
-        Map<TypeParameter,Variance> varianceOverrides = emptyMap)
-        (Scope scope) {
-
-    "Type's must have an associated TypeDeclaration."
-    assert (is TypeDeclaration declaration
-        =   scope.findDeclaration {
-                declarationName = declarationName;
-                packageName = packageName;
-                moduleName = moduleName;
-            });
-
-    return createType {
-        declaration = declaration;
-        typeArguments = typeArguments;
-        qualifyingType = qualifyingType;
-        varianceOverrides = varianceOverrides;
-    };
-}
-
-shared
 Type copyType(
         Type from,
         TypeDeclaration declaration = from.declaration,
@@ -1283,4 +1255,3 @@ class TypeImpl(
     shared actual Map<TypeParameter,Variance> varianceOverrides;
     shared actual TypeParameter? typeConstructorParameter;
 }
-

@@ -2,7 +2,9 @@ import ceylon.collection {
     HashMap,
     unlinked
 }
-shared abstract class Reference() of Type | TypedReference {
+
+shared abstract
+class Reference() of Type | TypedReference {
 
     shared formal
     Declaration declaration;

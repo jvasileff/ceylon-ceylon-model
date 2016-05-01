@@ -1,6 +1,6 @@
 "An applied reference to a method or attribute - a typed declaration together with
  actual type arguments."
-shared
+shared sealed
 class TypedReference(
         declaration,
         specifiedTypeArguments,

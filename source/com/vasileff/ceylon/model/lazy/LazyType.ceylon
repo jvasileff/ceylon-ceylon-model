@@ -1,5 +1,9 @@
 import com.vasileff.ceylon.model {
-    Type
+    Type,
+    Package
+}
+import com.vasileff.ceylon.model.parser {
+    parseType
 }
 
 // shared // not currently used
@@ -17,3 +21,10 @@ class LazyType(initializeType) extends Type() {
     isTypeConstructor => type.isTypeConstructor;
     typeConstructorParameter => type.typeConstructorParameter;
 }
+
+// shared // just an idea; not as fast or safe as parseTypeLG
+Type parseTypeLazy(Package pkg, String scope, String type)
+    =>  LazyType(() {
+            assert (exists scope = pkg.findDeclaration(scope.split(".".equals)));
+            return parseType(type, scope);
+        });

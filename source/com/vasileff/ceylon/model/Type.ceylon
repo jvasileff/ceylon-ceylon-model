@@ -356,7 +356,7 @@ class Type() extends Reference() {
         };
     }
 
-    Type? getPrincipalInstantiation(Criteria c) {
+    Type? getPrincipalInstantiation(Criteria criteria) {
         // search for the most-specific supertype for the declaration that satisfies
         // the given Criteria
 
@@ -364,7 +364,7 @@ class Type() extends Reference() {
 
         value candidates
             =>  internalExtendedAndSatisfiedTypes.map((st)
-                =>  st.getSupertype(c)).coalesced;
+                =>  st.getSupertype(criteria)).coalesced;
 
         for (candidate in candidates) {
             value previous = resultAndLowerBound;
@@ -375,28 +375,33 @@ class Type() extends Reference() {
             else if (previous[0].isSubtypeOf(candidate)) {
                 // just ignore this candidate
             }
-            // FIXME ceylon-model uses previous[1], but that seems wrong. If we stick
-            //       with previous[0], get rid of the tuple (lowerBound) altogether.
-            else if (candidate.isSubtypeOf(previous[0])) {
+            else if (candidate.isSubtypeOf(previous[1])) {
                 resultAndLowerBound = [candidate, candidate];
             }
             else {
                 // try to find a supertype of both types and form a principal
                 // instantiation
                 if (previous[0].declaration == candidate.declaration) {
+                    value pi = principalInstantiation {
+                        previous[0].declaration;
+                        candidate;
+                        previous[0];
+                        unit;
+                    };
                     resultAndLowerBound
-                        =   [principalInstantiation {
-                                previous[0].declaration;
-                                candidate;
-                                previous[0];
-                                unit;
-                            },
-                            previous[1]];
+                        =   [pi,
+                             if (!criteria.memberLookup)
+                             then pi
+                             // TODO make sure this is right. See Ceylon 6243
+                             else intersection {
+                                 [previous[1], candidate];
+                                 unit;
+                             }];
                 }
                 else {
                     // ambiguous! we can't decide between the two supertypes which
                     // both satisfy the criteria
-                    if (c.memberLookup) {
+                    if (criteria.memberLookup) {
                         // for the case of a member lookup, try to find a common
                         // supertype by forming the union of the two possible results
                         // (since A|B is always a supertype of A&B)
@@ -405,13 +410,16 @@ class Type() extends Reference() {
 
                         value newResult
                             =   union(newLowerBound.satisfiedTypes, unit)
-                                .getSupertype(c);
+                                    .getSupertype(criteria);
 
                         if (!exists newResult) {
                             return unit.unknownType;
                         }
 
                         resultAndLowerBound = [newResult, newLowerBound];
+                    }
+                    else {
+                        return unit.unknownType;
                     }
                 }
             }
@@ -421,7 +429,7 @@ class Type() extends Reference() {
     }
 
     Type | Absent getPrincipalInstantiationFromCases<Absent>
-            (Criteria c, Type | Absent result)
+            (Criteria criteria, Type | Absent result)
             given Absent satisfies Null {
 
         Type? getCommonSupertype({Type*} caseTypes, TypeDeclaration declaration) {
@@ -616,7 +624,7 @@ class Type() extends Reference() {
             // first find a common superclass or superinterface
             // declaration that satisfies the criteria, ignoring
             // type arguments for now
-            if (exists superDeclaration = findCommonSuperclass(c, caseTypes)) {
+            if (exists superDeclaration = findCommonSuperclass(criteria, caseTypes)) {
                 // we found the declaration, now try to construct a
                 // produced type that is a true common supertype
                 if (exists candidate = getCommonSupertype(caseTypes, superDeclaration)) {

@@ -42,8 +42,7 @@ class TypeDeclaration()
 
       Note that for certain special types which we happen to know don't have type
       arguments, we use this as a convenience method to quickly get a produced type for
-      use outside the body of the declaration, but this is
-      not really correct!"
+      use outside the body of the declaration, but this is not really correct!"
     shared default
     Type type
         =>  createType {

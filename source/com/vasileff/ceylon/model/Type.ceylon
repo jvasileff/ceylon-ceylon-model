@@ -140,6 +140,9 @@ class Type() extends Reference() {
         else if (isExactlyNothing) {
             return true;
         }
+        else if (isUnknown || that.isUnknown) {
+            return this === that;
+        }
         else if (isAnything) {
             return false;
         }
@@ -194,6 +197,10 @@ class Type() extends Reference() {
             value thatQT = that.qualifyingType;
 
             if (exists supertypeQT, exists thatQT) {
+                if (supertypeQT.isUnknown || thatQT.isUnknown) {
+                    return false;
+                }
+
                 value thatContainer = that.declaration.container;
 
                 if (!is ClassOrInterface thatContainer) {

@@ -68,19 +68,19 @@ class TypeDeclaration()
             };
 
     shared
-    {TypeDeclaration*} supertypeDeclarations
+    {ClassOrInterface*} supertypeDeclarations
         =>  collectSupertypeDeclarations {
-                HashSet<TypeDeclaration> { unit.anythingDeclaration };
+                HashSet<ClassOrInterface> { unit.anythingDeclaration };
             };
 
-    MutableSet<TypeDeclaration> collectSupertypeDeclarations
-            (results = HashSet<TypeDeclaration>()) {
+    MutableSet<ClassOrInterface> collectSupertypeDeclarations
+            (results = HashSet<ClassOrInterface>()) {
 
-        MutableSet<TypeDeclaration> results;
+        MutableSet<ClassOrInterface> results;
         switch (self = this)
         case (is ClassDefinition | InterfaceDefinition) {
-            if (!results.contains(this)) {
-                results.add(this);
+            if (!results.contains(self)) {
+                results.add(self);
                 extendedType?.declaration?.collectSupertypeDeclarations(results);
                 satisfiedTypes.map(Type.declaration).each((d)
                     =>  d.collectSupertypeDeclarations(results));

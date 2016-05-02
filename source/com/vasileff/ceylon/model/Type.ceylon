@@ -599,15 +599,13 @@ class Type() extends Reference() {
             return caseTypes.every((ct) => ct.isSubtypeOf(candidate)) then candidate;
         }
 
-        function findCommonSuperclass(Criteria c, {Type*} types) {
+        function findCommonSuperclass(Criteria c, {TypeDeclaration+} typeDeclarations) {
             variable TypeDeclaration? result = null;
-            value first = types.first?.declaration;
-            if (!exists first) {
-                return null;
-            }
+            value first = typeDeclarations.first;
+
             for (candidate in first.supertypeDeclarations) {
-                if (is ClassOrInterface candidate, c.satisfiesType(candidate)) {
-                    if (types.every((t) => t.declaration.inherits(candidate))) {
+                if (c.satisfiesType(candidate)) {
+                    if (typeDeclarations.every((d) => d.inherits(candidate))) {
                         value previous = result;
                         if (!exists previous) {
                             result = candidate;
@@ -631,7 +629,13 @@ class Type() extends Reference() {
             // first find a common superclass or superinterface
             // declaration that satisfies the criteria, ignoring
             // type arguments for now
-            if (exists superDeclaration = findCommonSuperclass(criteria, caseTypes)) {
+            value superDeclaration
+                =   findCommonSuperclass {
+                        criteria;
+                        caseTypes.collect(Type.declaration);
+                    };
+
+            if (exists superDeclaration) {
                 // we found the declaration, now try to construct a
                 // produced type that is a true common supertype
                 if (exists candidate = getCommonSupertype(caseTypes, superDeclaration)) {

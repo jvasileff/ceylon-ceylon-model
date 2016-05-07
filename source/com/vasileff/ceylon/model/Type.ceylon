@@ -124,7 +124,192 @@ class Type() extends Reference() {
         =>  variance(typeParameter) == contravariant;
 
     shared
-    Boolean isExactly(Type that)
+    Boolean isExactly(Type that) {
+        // FIXME resolve aliases for this and that
+        if (isUnknown || that.isUnknown) {
+            return this === that;
+        }
+        else if (isAnything) {
+            return that.isAnything;
+        }
+        else if (isExactlyNothing) {
+            return that.isExactlyNothing;
+        }
+        else if (isUnion) {
+            value thisCases = this.caseTypes.sequence();
+            if (that.isUnion) {
+                value thatCases = that.caseTypes.sequence();
+                if (thisCases.size != thatCases.size) {
+                    return false;
+                }
+                else {
+                    for (caseType in thisCases) {
+                        if (thatCases.every(not(caseType.isExactly))) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            }
+            else if (nonempty thisCases, thisCases.size == 1) {
+                return thisCases.first.isExactly(that);
+            }
+            return false;
+        }
+        else if (isIntersection) {
+            value thisTypes = satisfiedTypes.sequence();
+            if (that.isIntersection) {
+                value thatTypes = that.satisfiedTypes.sequence();
+                if (thisTypes.size != thatTypes.size) {
+                    return false;
+                }
+                else {
+                    for (thisType in thisTypes) {
+                        // TODO Review below
+
+                        variable value found = false;
+                        value thisTypeDeclaration = thisType.declaration;
+                        for (thatType in thatTypes) {
+                            value thatTypeDeclaration = thatType.declaration;
+                            if (thisTypeDeclaration == thatTypeDeclaration) {
+                                if (thisType.isExactly(thatType)) {
+                                    found = true;
+                                    break;
+                                }
+                                // given a covariant type Co, and interfaces
+                                // A satisfies Co<B&Co<A>> and
+                                // B satisfies Co<A&Co<B>>, then
+                                // A&Co<B> is equivalent A&Co<B&Co<A>> as a
+                                // consequence of principal instantiation
+                                // inheritance
+                                if (is ClassOrInterface | TypeParameter
+                                        thisTypeDeclaration,
+                                    is ClassOrInterface | TypeParameter
+                                        thatTypeDeclaration) {
+
+                                    assert (exists thisSupertype
+                                        =   getSupertype(thisTypeDeclaration));
+                                    assert (exists thatSupertype
+                                        =   that.getSupertype(thatTypeDeclaration));
+                                    if (thisSupertype.isExactly(thatSupertype)) {
+                                        found = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        if (!found) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            }
+            else if (nonempty thisTypes, thisTypes.size == 1) {
+                return thisTypes.first.isExactly(that);
+            }
+            return false;
+        }
+        else if (that.isUnion) {
+            value thatCases = that.caseTypes.sequence();
+            if (nonempty thatCases, thatCases.size == 1) {
+                return isExactly(thatCases.first);
+            }
+            return false;
+        }
+        else if (that.isIntersection) {
+            value thatSatisfiedTypes = that.satisfiedTypes.sequence();
+            if (nonempty thatSatisfiedTypes, thatSatisfiedTypes.size == 1) {
+                return isExactly(thatSatisfiedTypes.first);
+            }
+            return false;
+        }
+        else if (isObject) {
+            return that.isObject;
+        }
+        else if (that.isObject) {
+            return false;
+        }
+        else if (isNull) {
+            return that.isNull;
+        }
+        else if (that.isNull) {
+            return false;
+        }
+        else if (isClass != that.isClass
+                || isInterface != that.isInterface
+                || isTypeParameter != that.isTypeParameter) {
+            return false;
+        }
+        else if (isTypeConstructor && that.isTypeConstructor) {
+            //return isExactlyTypeConstructor(that);
+            return nothing;
+        }
+        else if (isTypeConstructor || that.isTypeConstructor) {
+            return false;
+        }
+        else {
+            if (!declaration.equals(that.declaration)) {
+                return false;
+            }
+            if (isTuple) {
+                return isExactlyTuple(that);
+            }
+
+            value thisQualifyingType = this.qualifyingType;
+            value thatQualifyingType = that.qualifyingType;
+            if (exists thisQualifyingType, exists thatQualifyingType) {
+                if (thisQualifyingType.isUnknown || thisQualifyingType.isUnknown) {
+                    return false;
+                }
+
+                value thisContainer = declaration.container;
+                value thatContainer = that.declaration.container;
+
+                if (is ClassOrInterface thisContainer,
+                    is ClassOrInterface thatContainer) {
+
+                    assert (exists thisQualifyingST
+                        =   thisQualifyingType.getSupertype(thisContainer));
+
+                    assert (exists thatQualifyingST
+                        =   thatQualifyingType.getSupertype(thatContainer));
+
+                    if (!thisQualifyingST.isExactly(thatQualifyingST)) {
+                        return false;
+                    }
+                }
+                else {
+                    // one of the two must be a local type, they should both be
+                    if (thisContainer is TypeDeclaration
+                        || thatContainer is TypeDeclaration) {
+                        return false;
+                    }
+                    // must be the same container
+                    if (!thisContainer == thatContainer) {
+                        return false;
+                    }
+                    // delegate
+                    if (!thisQualifyingType.isExactly(thatQualifyingType)) {
+                        return false;
+                    }
+                }
+            }
+            else if (qualifyingType exists || that.qualifyingType exists) {
+                // only one has a qualifying type
+                return false;
+            }
+
+            return isTypeArgumentListExactly(that);
+        }
+    }
+
+    shared
+    Boolean isExactlyTuple(Type that)
+        =>  nothing;
+
+    shared
+    Boolean isTypeArgumentListExactly(Type that)
         =>  nothing;
 
     shared

@@ -35,7 +35,7 @@ class ClassAlias(
     shared actual Boolean isStatic => false;
 
     shared actual
-    Boolean inherits(TypeDeclaration that)
+    Boolean inherits(ClassOrInterface | TypeParameter that)
         =>  extendedType.declaration.inherits(that);
 
     shared actual

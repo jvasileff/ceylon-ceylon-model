@@ -5,7 +5,7 @@ import com.vasileff.ceylon.model.internal {
 shared
 class ClassDefinition(
         container, name, extendedTypeLG, qualifier = null, refinedDeclaration = null,
-        satisfiedTypesLG = [], caseTypesLG = [], caseValues = [], selfType = null,
+        satisfiedTypesLG = [], caseTypesLG = [], caseValues = [],
         isShared = false, isFormal = false, isActual = false, isDefault = false,
         isAnnotation = false, isDeprecated = false, isStatic = false, isSealed = false,
         isAbstract = false, isAnonymous = false, isNamed = true, isFinal = false,
@@ -74,6 +74,7 @@ class ClassDefinition(
 
     shared actual
     Type[] caseTypes
+        // FIXME remove types with declarations == this; see ceylon-model
         =>  caseTypesMemo else (caseTypesMemo
             =   caseTypesLG.collect(toType(this)));
 
@@ -82,7 +83,6 @@ class ClassDefinition(
     shared actual String name;
     shared actual Integer? qualifier;
     shared actual Class? refinedDeclaration;
-    shared actual Type? selfType;
     shared actual Unit unit;
 
     shared actual Boolean isAbstract;
@@ -123,7 +123,7 @@ class ClassDefinition(
         =>  false;
 
     shared actual
-    Boolean inherits(TypeDeclaration that) {
+    Boolean inherits(ClassOrInterface | TypeParameter that) {
         if (that.isAnything) {
             return true;
         }

@@ -132,15 +132,18 @@ void addToIntersection(MutableSet<Type> types, Type that, Unit unit) {
                 types.add(that);
                 return;
             }
-            if (that.isClassOrInterface
-                    && existing.isClassOrInterface
+            if ((that.declaration is ClassOrInterface | TypeParameter)
                     && that.declaration == existing.declaration) {
                 // canonicalize a type of form
                 // T<InX,OutX>&T<InY,OutY> to
                 // T<InX|InY,OutX&OutY>
-                value pi = principalInstantiation(that.declaration, that, existing, unit);
-                types.remove(existing);
-                types.add(pi);
+                value pi = principalInstantiation {
+                    that.declaration; that; existing; unit;
+                };
+                if (exists pi) {
+                    types.remove(existing);
+                    types.add(pi);
+                }
                 return;
             }
         }
@@ -157,8 +160,49 @@ void addToIntersection(MutableSet<Type> types, Type that, Unit unit) {
 }
 
 Boolean disjoint(Type a, Type b, Unit unit) {
-    if (a.declaration.isDisjoint(b.declaration)) {
-        return true;
+    "Implement the rule that `Foo&Bar==Nothing` if there exists some enumerated
+     type Baz with
+
+         Baz of Foo | Bar
+
+     Returns false if either declaration is a UnionType.
+
+     Returns true if this type is disjoint from the given type, according to
+     this rule only."
+    Boolean isDisjointEnum(TypeDeclaration a, TypeDeclaration b) {
+        function isDisjointFromB(TypeDeclaration satisfiedDeclaration) {
+            // ignore unions, type parameters, types w/self types, and types with no
+            // case types
+            if (satisfiedDeclaration is ClassOrInterface,
+                    nonempty enumeratedTypes = satisfiedDeclaration.enumeratedTypes) {
+                // if b inherits one of the case types that isn't a, they're disjoint
+                value otherCases
+                    =   enumeratedTypes.map(Type.declaration).filter(not(a.equals));
+                for (caseDeclaration in otherCases) {
+                    "An enumerated case type must be a class or interface."
+                    assert (is ClassOrInterface caseDeclaration);
+                    if (b.inherits(caseDeclaration)) {
+                        return true;
+                    }
+                }
+            }
+            // if a satisfies a type that is disjoint from b, a and b are disjoint
+            return isDisjointEnum(satisfiedDeclaration, b);
+        }
+
+        if (a is UnionType || b is UnionType) {
+            return false;
+        }
+
+        if (a is ClassOrInterface && b is ClassOrInterface && a == b) {
+            return false;
+        }
+
+        if (a is TypeParameter && b is TypeParameter && a == b) {
+            return false;
+        }
+
+        return a.extendedAndSatisfiedDeclarations.any(isDisjointFromB);
     }
 
     Boolean hasEmptyIntersectionOfInvariantInstantiations(Type a, Type b) {
@@ -212,74 +256,79 @@ Boolean disjoint(Type a, Type b, Unit unit) {
         if (a.isExactlyNothing || b.isExactlyNothing) {
             return true;
         }
-        if (a.isTypeParameter) {
-            a = canonicalIntersection(a.satisfiedTypes, unit);
-        }
-        if (b.isTypeParameter) {
-            b = canonicalIntersection(a.satisfiedTypes, unit);
-        }
-        if (a.isIntersection) {
-            return a.satisfiedTypes.any((st) => emptyMeet(b, st, unit));
-        }
-        if (b.isIntersection) {
-            return b.satisfiedTypes.any((st) => emptyMeet(a, st, unit));
+
+        if (a.isUnknown || b.isUnknown) {
+            return false; // JV: I guess this is right?
         }
 
         if (a.isUnion) {
             return a.caseTypes.every((ct) => emptyMeet(b, ct, unit));
         }
-        else if (!a.declaration.caseTypes.empty
-                 && a.declaration.caseTypes
-                        .filter((ct) => !ct.declaration.isSelfType)
-                        .every((ct) => emptyMeet(b, ct, unit))) {
+
+        if (a.declaration.hasEnumeratedTypes
+                && a.caseTypes.every((ct) => emptyMeet(b, ct, unit))) {
             return true;
         }
+
         if (b.isUnion) {
             return b.caseTypes.every((ct) => emptyMeet(a, ct, unit));
         }
-        else if (!b.declaration.caseTypes.empty
-                 && b.declaration.caseTypes
-                        .filter((ct) => !ct.declaration.isSelfType)
-                        .every((ct) => emptyMeet(a, ct, unit))) {
+
+        if (b.declaration.hasEnumeratedTypes
+                && b.caseTypes.every((ct) => emptyMeet(a, ct, unit))) {
             return true;
         }
+
+        if (a.isIntersection || a.declaration is TypeParameter) {
+            return a.satisfiedTypes.any((st) => emptyMeet(b, st, unit));
+        }
+
+        if (b.isIntersection || b.declaration is TypeParameter) {
+            return b.satisfiedTypes.any((st) => emptyMeet(a, st, unit));
+        }
+
+        assert (!is NothingDeclaration | UnionType | IntersectionType | Constructor
+            | TypeAlias | TypeParameter| UnknownType aDeclaration = a.declaration);
+
+        assert (!is NothingDeclaration | UnionType | IntersectionType | Constructor
+            | TypeAlias | TypeParameter| UnknownType bDeclaration = b.declaration);
+
         if (a.isClass && b.isClass
                 || a.isInterface && b.isNull
                 || b.isInterface && a.isNull) {
-            if (!a.declaration.inherits(b.declaration)
-                    && !b.declaration.inherits(a.declaration)) {
+            if (!aDeclaration.inherits(bDeclaration)
+                    && !bDeclaration.inherits(aDeclaration)) {
                 return true;
             }
         }
 
-        if (a.declaration.isFinal) {
-            if (a.declaration.typeParameters.empty
+        if (aDeclaration.isFinal) {
+            if (aDeclaration.typeParameters.empty
                     && !b.involvesTypeParameters
                     && !a.isSubtypeOf(b)) {
                 return true;
             }
             if (b.isClassOrInterface
-                    && !a.declaration.inherits(b.declaration)) {
+                    && !aDeclaration.inherits(bDeclaration)) {
                 return true;
             }
         }
 
         value sequential = unit.sequentialDeclaration;
-        if (a.isClassOrInterface
-                && b.declaration.inherits(sequential)
-                && !a.declaration.inherits(sequential)
-                && !sequential.inherits(a.declaration)
-            || b.isClassOrInterface
-                && a.declaration.inherits(sequential)
-                && !b.declaration.inherits(sequential)
-                && !sequential.inherits(b.declaration)
-                && !b.involvesTypeParameters) /* FIXME incorrect? */ {
+        if (        bDeclaration.inherits(sequential)
+                && !aDeclaration.inherits(sequential)
+                && !sequential.inherits(aDeclaration)
+            ||      aDeclaration.inherits(sequential)
+                && !bDeclaration.inherits(sequential)
+                && !sequential.inherits(bDeclaration)) {
             return true;
         }
 
+        // A non-empty sequence is disjoint from any other sequential if their element
+        // types are disjoint.
         value sequence = unit.sequenceDeclaration;
-        if (    a.declaration.inherits(sequence) && b.declaration.inherits(sequential)
-             || b.declaration.inherits(sequence) && a.declaration.inherits(sequential)) {
+        if (    aDeclaration.inherits(sequence) && bDeclaration.inherits(sequential)
+             || bDeclaration.inherits(sequence) && aDeclaration.inherits(sequential)) {
             assert (exists elementA = unit.getSequentialElementType(a));
             assert (exists elementB = unit.getSequentialElementType(b));
             if (emptyMeet(elementA, elementB, unit)) {
@@ -288,7 +337,7 @@ Boolean disjoint(Type a, Type b, Unit unit) {
         }
 
         value tuple = unit.tupleDeclaration;
-        if (a.declaration.inherits(tuple) && b.declaration.inherits(tuple)) {
+        if (aDeclaration.inherits(tuple) && bDeclaration.inherits(tuple)) {
             value argsA = a.typeArgumentList.rest;
             value argsB = b.typeArgumentList.rest;
             if (anyPair<Type, Type>((x, y) => emptyMeet(x, y, unit), argsA, argsB)) {
@@ -296,7 +345,7 @@ Boolean disjoint(Type a, Type b, Unit unit) {
             }
         }
 
-        if (a.declaration.inherits(tuple) && b.declaration.inherits(sequential)) {
+        if (aDeclaration.inherits(tuple) && bDeclaration.inherits(sequential)) {
             assert (exists arg1 = a.typeArgumentList.getFromFirst(1));
             assert (exists arg2 = a.typeArgumentList.getFromFirst(2));
             assert (exists type = unit.getSequentialElementType(b));
@@ -305,7 +354,7 @@ Boolean disjoint(Type a, Type b, Unit unit) {
                 return true;
             }
         }
-        if (b.declaration.inherits(tuple) && a.declaration.inherits(sequential)) {
+        if (bDeclaration.inherits(tuple) && aDeclaration.inherits(sequential)) {
             assert (exists arg1 = b.typeArgumentList.getFromFirst(1));
             assert (exists arg2 = b.typeArgumentList.getFromFirst(2));
             assert (exists type = unit.getSequentialElementType(a));
@@ -320,12 +369,29 @@ Boolean disjoint(Type a, Type b, Unit unit) {
 
     // we have to resolve aliases here, or computing supertype declarations gets
     // incredibly slow for the big stack of union type aliases in ceylon.ast
-    value ar = a.resolvedAliases;
-    value br = b.resolvedAliases;
+    value ar = a.resolved;
+    value br = b.resolved;
+
+    if (isDisjointEnum(ar.declaration, br.declaration)) {
+        return true;
+    }
 
     return emptyMeet(ar, br, unit)
             || hasEmptyIntersectionOfInvariantInstantiations(ar, br);
 }
+
+"The intersection of the types inherited by this declaration. No need to worry
+ about canonicalization because:
+
+ 1. an inherited type can't be a union, and
+ 2. they are prevented from being disjoint types."
+shared
+Type intersectionOfSupertypes
+        (ClassOrInterface | TypeParameter typeDeclaration, Unit unit)
+    =>  let (types = typeDeclaration.extendedAndSatisfiedTypes.sequence())
+        if (!nonempty types)
+        then unit.anythingDeclaration.type
+        else IntersectionType(types, unit).type;
 
 "Given two instantiations of the same type constructor, construct a principal
  instantiation that is a supertype of both. This is impossible in the following special
@@ -338,15 +404,15 @@ Boolean disjoint(Type a, Type b, Unit unit) {
    same type where one argument is a type parameter
 
  Nevertheless, we give it our best shot!"
-Type principalInstantiation(
+Type? principalInstantiation(
         TypeDeclaration typeDeclaration, Type first, Type second, Unit unit) {
 
     Type? principalQualifyingType {
         value qualifyingTypeA = first.qualifyingType;
         value qualifyingTypeB = second.qualifyingType;
-        value scope = typeDeclaration.container;
         if (exists qualifyingTypeA, exists qualifyingTypeB) {
-            if (is TypeDeclaration scope) {
+            value scope = typeDeclaration.container;
+            if (is ClassOrInterface scope) { // TODO JV: why not just assert this?
                 if (exists supertypeA = qualifyingTypeA.getSupertype(scope),
                     exists supertypeB = qualifyingTypeB.getSupertype(scope)) {
                     return principalInstantiation {
@@ -358,6 +424,7 @@ Type principalInstantiation(
                 }
             }
             else if (qualifyingTypeA.isExactly(qualifyingTypeB)) {
+                // JV: when does this happen?
                 return qualifyingTypeA;
             }
         }
@@ -396,20 +463,25 @@ Type principalInstantiation(
                 else {
                     // the type arguments are distinct, and the intersection is Nothing,
                     // so there is no reasonable principal instantiation
-                    return unit.nothingDeclaration.type;
+
+                    // Note: if typeDeclaration is a TypeParameter, it may not actually
+                    // be invariant, and the principal instantiation may not be
+                    // Nothing
+                    return null;
                 }
             }
             case (covariant) {
-               if (firstArg.isSubtypeOf(secondArg)) {
-                   arg = firstArg;
-               }
-               else if (parameterized) {
-                  // irreconcilable instantiations
-                  arg = unit.unknownType;
-               }
-               else {
-                   return unit.nothingDeclaration.type;
-               }
+                if (firstArg.isSubtypeOf(secondArg)) {
+                    arg = firstArg;
+                }
+                else if (parameterized) {
+                    // irreconcilable instantiations
+                    arg = unit.unknownType;
+                }
+                else {
+                    // may not be Nothing for TPs
+                    return null;
+                }
             }
             case (contravariant) {
                 if (secondArg.isSubtypeOf(firstArg)) {
@@ -420,7 +492,7 @@ Type principalInstantiation(
                     arg = unit.unknownType;
                 }
                 else {
-                    return unit.nothingDeclaration.type;
+                    return null;
                 }
             }
         }
@@ -431,11 +503,12 @@ Type principalInstantiation(
                     arg = secondArg;
                 }
                 else if (parameterized) {
-                   // irreconcilable instantiations
-                   arg = unit.unknownType;
+                    // irreconcilable instantiations
+                    arg = unit.unknownType;
                 }
                 else {
-                    return unit.nothingDeclaration.type;
+                    // may not be Nothing for TPs
+                    return null;
                 }
             }
             case (covariant) {
@@ -461,7 +534,8 @@ Type principalInstantiation(
                    arg = unit.unknownType;
                 }
                 else {
-                    return unit.nothingDeclaration.type;
+                    // may not be Nothing for TPs
+                    return null;
                 }
             }
             case (covariant) {

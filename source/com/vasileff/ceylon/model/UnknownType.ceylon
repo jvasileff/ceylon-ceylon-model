@@ -31,7 +31,7 @@ class UnknownType(unit) extends TypeDeclaration() {
     shared actual Boolean isStatic => false;
 
     shared actual
-    Boolean inherits(TypeDeclaration that)
+    Boolean inherits(ClassOrInterface | TypeParameter that)
         =>  false;
 
     shared actual

@@ -156,9 +156,9 @@ class Type() extends Reference() {
             return that.caseTypes.every((ct) => isSubtypeOf(ct));
         }
         else if (isIntersection) {
-            if (that.isClassOrInterface) {
-                // TODO why not return 'false' if superType is null?
-                if (exists superType = getSupertype(that.declaration),
+            if (is ClassOrInterface | TypeParameter thatDeclaration
+                    =   that.declaration) {
+                if (exists superType = getSupertype(thatDeclaration),
                         superType.isSubtypeOf(that)) {
                     return true;
                 }
@@ -166,14 +166,16 @@ class Type() extends Reference() {
             return satisfiedTypes.any((st) => st.isSubtypeOf(that));
         }
         else if (that.isIntersection) {
-            // Any reason for lack of symmetry with prior case?
-            return that.satisfiedTypes.every((st) => isSubtypeOf(st));
+            return that.satisfiedTypes.every(isSubtypeOf);
         }
         else if (isTypeConstructor && that.isTypeConstructor) {
             return  nothing; // isSubtypeOfTypeConstructor(that);
         }
         else if (isTypeConstructor) {
             return that.isAnything || that.isObject;
+        }
+        else if (that.isTypeConstructor) {
+            return false;
         }
         else if (isObject) {
             return that.isObject;
@@ -188,7 +190,11 @@ class Type() extends Reference() {
             return isSubtypeOfTuple(that);
         }
         else {
-            value supertype = getSupertype(that.declaration)?.resolvedAliases;
+            value thatDeclaration = that.declaration;
+            assert (!is IntersectionType | UnionType | NothingDeclaration | UnknownType
+                | Constructor | TypeAlias thatDeclaration);
+
+            value supertype = getSupertype(thatDeclaration)?.resolved;
             if (!exists supertype) {
                 return false;
             }
@@ -229,7 +235,7 @@ class Type() extends Reference() {
                     // type, as long as it doesn't refine the
                     // member type
                     value thatQTSupertype
-                        =   thatQT.getSupertype(thatContainer)?.resolvedAliases;
+                        =   thatQT.getSupertype(thatContainer)?.resolved;
 
                     if (!exists thatQTSupertype) {
                         return false;
@@ -248,7 +254,7 @@ class Type() extends Reference() {
         }
     }
 
-    shared Type resolvedAliases => this; // FIXME
+    shared Type resolved => nothing;
 
     shared actual Boolean equals(Object that) {
         if (!is Type that) {
@@ -273,14 +279,14 @@ class Type() extends Reference() {
         return varianceOverrides == that.varianceOverrides;
     }
 
-    // TODO
-    shared Boolean isSubtypeOfTuple(Type that) => false;
+    shared Boolean isSubtypeOfTuple(Type that) => nothing;
 
     shared
-    Type? getSupertype(Criteria | TypeDeclaration criteria) {
+    Type? getSupertype(Criteria | ClassOrInterface | TypeParameter criteria) {
         "Search for the most-specialized supertype satisfying the given predicate."
         Type? getSupertypeForCriteria(Criteria criteria) {
-            if (criteria.satisfiesType(declaration)) {
+            if (is ClassOrInterface | TypeParameter d = declaration,
+                    criteria.satisfiesType(d)) {
                 return qualifiedByDeclaringType;
             }
             // The ceylon-model note reads...:
@@ -294,28 +300,30 @@ class Type() extends Reference() {
                         };
                     };
 
+            // Don't return Nothing as a result; we're not trying to show that two
+            // instantiations are disjoint here.
             if (exists result, !result.isNothing) {
                 return result;
             }
             return null;
         }
 
-        Type? getSupertypeForDeclaration(variable TypeDeclaration? td) {
-            // don't resolve aliases here because we want to
-            // try and propagate the aliased specified in the
-            // code through to the returned supertype
+        Type? getSupertypeForDeclaration(variable ClassOrInterface | TypeParameter? td) {
+            // Don't resolve aliases here because we want to try to propagate the aliased
+            // specified in the code through to the returned supertype
 
             if (isNothing) {
                 // From ceylon-model: this is what the backend expects, apparently
                 return null;
             }
 
-            while (td is Alias) {
+            while (td is ClassAlias | InterfaceAlias) {
                 value et = td?.extendedType;
                 if (!exists et) {
                     return null;
                 }
-                td = et.declaration;
+                assert (is ClassOrInterface extendedDeclaration = et.declaration);
+                td = extendedDeclaration;
             }
 
             value resolvedTD = td;
@@ -324,8 +332,8 @@ class Type() extends Reference() {
             }
 
             return
-            if (isSimpleSupertypeLookup(resolvedTD)) then
-                // fast. Won't have type parameters
+            if (is ClassOrInterface resolvedTD, isSimpleSupertypeLookup(resolvedTD)) then
+                // fast. Won't have type parameters or qualifying type
                 (declaration.inherits(resolvedTD) then resolvedTD.type)
             else // slow
                 getSupertypeForCriteria(SupertypeCriteria(resolvedTD));
@@ -369,6 +377,7 @@ class Type() extends Reference() {
 
         variable [Type, Type]? resultAndLowerBound = null;
 
+        "The various ways in which this Type satisfies the criteria."
         value candidates
             =>  internalExtendedAndSatisfiedTypes.map((st)
                 =>  st.getSupertype(criteria)).coalesced;
@@ -395,6 +404,9 @@ class Type() extends Reference() {
                         previous[0];
                         unit;
                     };
+                    if (!exists pi) {
+                        return null;
+                    }
                     resultAndLowerBound
                         =   [pi,
                              if (!criteria.memberLookup)
@@ -439,7 +451,7 @@ class Type() extends Reference() {
             (Criteria criteria, Type | Absent result)
             given Absent satisfies Null {
 
-        Type? getCommonSupertype({Type*} caseTypes, TypeDeclaration declaration) {
+        Type? getCommonSupertype({Type*} caseTypes, ClassOrInterface declaration) {
             // now try to construct a common produced type that is a common supertype by
             // taking the type args and unioning them
 
@@ -535,7 +547,8 @@ class Type() extends Reference() {
                             // we have mixed covariant and invariant
                             // instantiations - that's only OK if we
                             // have something of form
-                            value upperBound = typeParameter.intersectionOfSupertypes;
+                            value upperBound
+                                =   intersectionOfSupertypes(typeParameter, unit);
                             result = upperBound;
                             varianceOverrides.put(typeParameter, covariant);
                             // Note we could have used "in Nothing"
@@ -600,7 +613,7 @@ class Type() extends Reference() {
         }
 
         function findCommonSuperclass(Criteria c, {TypeDeclaration+} typeDeclarations) {
-            variable TypeDeclaration? result = null;
+            variable ClassOrInterface? result = null;
             value first = typeDeclarations.first;
 
             for (candidate in first.supertypeDeclarations) {
@@ -652,16 +665,15 @@ class Type() extends Reference() {
         return result;
     }
 
-    Boolean isSimpleSupertypeLookup(TypeDeclaration? td)
-        =>  td is ClassOrInterface
-                && !declaration is UnionType
-                && !declaration is IntersectionType
-                && declaration.typeParameters.empty
-                && !declaration.container is ClassOrInterface
-                // this is for the runtime which uses
-                // qualifying types in a strange way
-                // https://github.com/ceylon/ceylon/issues/4429
-                && !qualifyingType exists;
+    Boolean isSimpleSupertypeLookup(ClassOrInterface td)
+        =>     !declaration is UnionType
+            && !declaration is IntersectionType
+            &&  td.typeParameters.empty
+            && !td.container is ClassOrInterface
+            // this is for the runtime which uses
+            // qualifying types in a strange way
+            // https://github.com/ceylon/ceylon/issues/4429
+            && !qualifyingType exists;
 
     shared
     Type? extendedType
@@ -935,12 +947,14 @@ class Type() extends Reference() {
     }
 
     // TODO do we really need a Criteria class?
-    class SupertypeCriteria(TypeDeclaration td) satisfies Criteria {
-        shared actual Boolean satisfiesType(TypeDeclaration satisfiesTd)
-            =>  !satisfiesTd is UnionType | IntersectionType
-                    && satisfiesTd.equals(td);
+    class SupertypeCriteria(ClassOrInterface | TypeParameter td) satisfies Criteria {
+        shared actual
+        Boolean satisfiesType(ClassOrInterface | TypeParameter satisfiesTd)
+            =>  satisfiesTd.equals(td);
 
-        shared actual Boolean memberLookup => false;
+        shared actual
+        Boolean memberLookup
+            =>  false;
     }
 
     shared

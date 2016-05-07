@@ -24,6 +24,7 @@ class TypeParameter(
 
     shared actual
     Type[] caseTypes
+        // FIXME remove types with declarations == this; see ceylon-model
         =>  caseTypesMemo else (caseTypesMemo
             =   caseTypesLG.collect(toType(this)));
 
@@ -66,10 +67,16 @@ class TypeParameter(
     shared actual Boolean isStatic => false;
 
     shared actual
-    Boolean inherits(TypeDeclaration that)
-        =>  that.isAnything
-            || satisfiedTypes.every((st)
-                =>  st.declaration.inherits(that));
+    Boolean inherits(ClassOrInterface | TypeParameter that)
+        =>  that.isAnything || satisfiedTypes.any((st) => st.declaration.inherits(that));
+
+    shared actual
+    {ClassOrInterface | TypeParameter*} extendedAndSatisfiedDeclarations {
+        return extendedAndSatisfiedTypes.map((t) {
+            assert (is ClassOrInterface | TypeParameter d = t.declaration);
+            return d;
+        });
+    }
 
     shared actual
     Type type

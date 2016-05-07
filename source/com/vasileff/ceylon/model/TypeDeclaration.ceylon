@@ -21,10 +21,9 @@ class TypeDeclaration()
     shared formal [Type*] satisfiedTypes;
     shared formal [Type*] caseTypes;
     shared formal [Value*] caseValues;
-    shared formal Type? selfType;
     shared formal Boolean isSealed;
     shared formal Boolean isFinal;
-    shared formal Boolean inherits(TypeDeclaration that);
+    shared formal Boolean inherits(ClassOrInterface | TypeParameter that);
 
     shared default
     Boolean isSelfType => false;
@@ -144,8 +143,8 @@ class TypeDeclaration()
             Boolean memberLookup => true;
 
             shared actual
-            Boolean satisfiesType(TypeDeclaration type) {
-                // do not direct members of this scope
+            Boolean satisfiesType(ClassOrInterface | TypeParameter type) {
+                // do not detect members of this scope
                 if (type == outer) {
                     return false;
                 }
@@ -185,62 +184,34 @@ class TypeDeclaration()
             then satisfiedTypes.follow(et)
             else satisfiedTypes;
 
-    "The intersection of the types inherited by this declaration. No need to worry
-     about canonicalization because:
+    shared default
+    {TypeDeclaration*} extendedAndSatisfiedDeclarations
+        =>  extendedAndSatisfiedTypes.map(Type.declaration);
 
-     1. an inherited type can't be a union, and
-     2. they are prevented from being disjoint types."
+    shared default
+    Type? selfType
+        =>  if (hasSelfType)
+            then caseTypes.first
+            else null;
+
     shared
-    Type intersectionOfSupertypes
-        =>  IntersectionType {
-                extendedAndSatisfiedTypes.sequence();
-                unit;
-            }.type;
+    Boolean hasSelfType
+        =>  caseTypes.first?.isTypeParameter else false;
 
-    "implement the rule that `Foo & Bar == Nothing` if
-     here exists some enumerated type `Baz` with
-
-         Baz of Foo | Bar
-
-     (the intersection of disjoint types is empty)"
+    "Is this a class, interface, or type parameter with enumerated types or enumerated
+     type constraints?"
     shared
-    Boolean isDisjoint(TypeDeclaration that) {
-        function isDisjointFrom(TypeDeclaration satisfiedDeclaration) {
-            // for all the cases of a type we satisfy
-            for (i->caseType in satisfiedDeclaration.caseTypes.indexed) {
-                // if there is a case that matches this
-                if (caseType.declaration == this) {
-                    for (j->otherCaseType in satisfiedDeclaration.caseTypes.indexed) {
-                        // if it inherits one of the others, it's disjoint
-                        if (i != j && that.inherits(otherCaseType.declaration)) {
-                            return true;
-                        }
-                    }
-                    break;
-                }
-            }
-            // if 'this' satisfies a type that is disjoint from 'that', 'this' and
-            // 'that' are disjoint
-            return satisfiedDeclaration.isDisjoint(that);
-        }
+    Boolean hasEnumeratedTypes
+        =>  this is ClassOrInterface | TypeParameter
+            && !hasSelfType
+            && !caseTypes.empty;
 
-        if (this is ClassOrInterface
-                && that is ClassOrInterface
-                && this == that) {
-            return false;
-        }
-        if (this is TypeParameter
-                && that is TypeParameter
-                && this == that) {
-            return false;
-        }
-        if (extendedAndSatisfiedTypes
-                .map(Type.declaration)
-                .any(isDisjointFrom)) {
-            return true;
-        }
-        return false;
-    }
+    "If [[hasEnumeratedTypes]], then [[caseTypes]]. Otherwise, `[]`."
+    shared
+    [Type*] enumeratedTypes
+        =>  if (hasEnumeratedTypes)
+            then caseTypes
+            else [];
 
     ///////////////////////////////////
     //

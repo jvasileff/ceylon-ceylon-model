@@ -11,7 +11,7 @@ class NothingDeclaration(unit) extends TypeDeclaration() {
     shared actual [] caseValues => [];
     shared actual Package container => pkg;
     shared actual Type extendedType => unit.anythingDeclaration.type;
-    shared actual Boolean inherits(TypeDeclaration that) => true;
+    shared actual Boolean inherits(ClassOrInterface | TypeParameter that) => true;
     shared actual String name => "Nothing";
     shared actual Null qualifier => null;
     shared actual Null refinedDeclaration => null;

@@ -5,17 +5,17 @@ import ceylon.collection {
 shared
 class IntersectionType(satisfiedTypes, unit) extends TypeDeclaration() {
 
-    shared actual Type[] satisfiedTypes;
+    shared actual [Type+] satisfiedTypes;
     shared actual Unit unit;
 
-    shared actual Type[] caseTypes => [];
-    shared actual Value[] caseValues => [];
-    shared actual Type? extendedType => unit.anythingDeclaration.type;
+    shared actual [] caseTypes => [];
+    shared actual [] caseValues => [];
+    shared actual Type extendedType => unit.anythingDeclaration.type;
     shared actual String name => type.formatted;
-    shared actual Integer? qualifier => null;
+    shared actual Null qualifier => null;
     shared actual String qualifiedName => type.qualifiedNameWithTypeArguments;
-    shared actual Declaration? refinedDeclaration => null;
-    shared actual Type? selfType => null;
+    shared actual Null refinedDeclaration => null;
+    shared actual Null selfType => null;
 
     shared actual Boolean isActual => false;
     shared actual Boolean isAnnotation => false;
@@ -44,15 +44,13 @@ class IntersectionType(satisfiedTypes, unit) extends TypeDeclaration() {
         =>  false;
 
     shared actual
-    Boolean inherits(TypeDeclaration that)
+    Boolean inherits(ClassOrInterface | TypeParameter that)
         =>  that.isAnything || satisfiedTypes.any((st) => st.declaration.inherits(that));
 
     shared actual
     Type type
-        =>  if (!nonempty satisfiedTypes) then
-                unit.anythingDeclaration.type
-            else if (satisfiedTypes.size == 1) then
-                satisfiedTypes[0]
+        =>  if (satisfiedTypes.size == 1)
+            then satisfiedTypes[0]
             else super.type;
 
     "Apply the distributive rule X&(Y|Z) == X&Y|X&Z to simplify the intersection to a
@@ -60,9 +58,6 @@ class IntersectionType(satisfiedTypes, unit) extends TypeDeclaration() {
      an intersection of unions."
     shared
     TypeDeclaration canonicalized {
-        if (!nonempty satisfiedTypes) {
-            return unit.anythingDeclaration;
-        }
         // JV: what's the purpose of this? Why do we care about the size?
         if (satisfiedTypes.size == 1 && satisfiedTypes[0].isExactlyNothing) {
             return unit.nothingDeclaration;
@@ -73,7 +68,7 @@ class IntersectionType(satisfiedTypes, unit) extends TypeDeclaration() {
             for (caseType in satisfiedUnion.caseTypes) {
                 value intersectionSet = HashSet<Type>();
                 for (satisfiedType in satisfiedTypes) {
-                    if (satisfiedType == satisfiedUnion) {
+                    if (satisfiedType === satisfiedUnion) {
                         addToIntersection(intersectionSet, caseType, unit);
                     }
                     else {
@@ -83,8 +78,10 @@ class IntersectionType(satisfiedTypes, unit) extends TypeDeclaration() {
                 value it = canonicalIntersection(intersectionSet, unit);
                 addToUnion(unionSet, it);
             }
+
+            assert (nonempty unionTypes = unionSet.sequence());
             return UnionType {
-                unionSet.sequence();
+                unionTypes;
                 unit;
             };
         }

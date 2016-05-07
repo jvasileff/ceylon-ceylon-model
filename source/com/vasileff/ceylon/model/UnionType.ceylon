@@ -1,11 +1,11 @@
 shared
 class UnionType(caseTypes, unit) extends TypeDeclaration() {
 
-    shared actual Type[] caseTypes;
+    shared actual [Type+] caseTypes;
     shared actual Unit unit;
 
-    shared actual Value[] caseValues => [];
-    shared actual Type? extendedType => unit.anythingDeclaration.type;
+    shared actual [] caseValues => [];
+    shared actual Type extendedType => unit.anythingDeclaration.type;
     shared actual String name => type.formatted;
     shared actual Null qualifier => null;
     shared actual String qualifiedName => type.qualifiedNameWithTypeArguments;
@@ -35,20 +35,13 @@ class UnionType(caseTypes, unit) extends TypeDeclaration() {
         =>  false;
 
     shared actual
-    Boolean inherits(TypeDeclaration that) {
-        if (that.isAnything) {
-            return true;
-        }
-        value st = type.resolvedAliases.getSupertype(that);
-        return !(st?.isNothing else false);
-    }
+    Boolean inherits(ClassOrInterface | TypeParameter that)
+        =>  that.isAnything || caseTypes.every((ct) => ct.declaration.inherits(that));
 
     shared actual
     Type type
-        =>  if (!nonempty caseTypes) then
-                unit.nothingDeclaration.type
-            else if (caseTypes.size == 1) then
-                caseTypes[0]
+        =>  if (caseTypes.size == 1)
+            then caseTypes[0]
             else super.type;
 
     shared actual

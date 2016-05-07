@@ -6,7 +6,7 @@ shared
 class InterfaceDefinition(
         container, name,
         qualifier = null, satisfiedTypesLG = [], caseTypesLG = [], caseValues = [],
-        selfType = null, isShared = false, isFormal = false, isActual = false,
+        isShared = false, isFormal = false, isActual = false,
         isDefault = false, isAnnotation = false, isDeprecated = false,
         isStatic = false, isSealed = false, isFinal = false,
         unit = container.pkg.defaultUnit)
@@ -44,6 +44,7 @@ class InterfaceDefinition(
     }
 
     shared actual Type[] caseTypes
+        // FIXME remove types with declarations == this; see ceylon-model
         =>  caseTypesMemo else (caseTypesMemo
             =   caseTypesLG.collect(toType(this)));
 
@@ -51,7 +52,6 @@ class InterfaceDefinition(
     shared actual Scope container;
     shared actual String name;
     shared actual Integer? qualifier;
-    shared actual Type? selfType;
     shared actual Unit unit;
 
     shared actual Boolean isActual;
@@ -72,7 +72,7 @@ class InterfaceDefinition(
         =>  other is InterfaceDefinition;
 
     shared actual
-    Boolean inherits(TypeDeclaration that) {
+    Boolean inherits(ClassOrInterface | TypeParameter that) {
         if (that.isAnything || that.isObject) {
             return true;
         }

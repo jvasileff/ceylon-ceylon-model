@@ -40,9 +40,7 @@ class Constructor(
         =>  getDirectMember(name);
 
     shared actual
-    Boolean inherits(TypeDeclaration that)
-        // TODO does this make any sense? It checks a chain of constructors, and then,
-        //      if one happens to extend a class, it checks that class's inheritance?
+    Boolean inherits(ClassOrInterface | TypeParameter that)
         =>  extendedType.declaration.inherits(that);
 
     shared actual

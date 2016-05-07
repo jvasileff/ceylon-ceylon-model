@@ -95,9 +95,9 @@ class Declaration() of TypeDeclaration | TypedDeclaration extends Element() {
      returned is different from [[aggregateTypeArguments]], which also includes type
      arguments from qualifying types. In this case we assume they're uninteresting.
 
-     We do need to compensate for this in [[Type.substituteFromType]] by expanding out the type
-     arguments of the qualifying type. An alternative solution would be to just expand
-     out all the type args of the qualifying type here.
+     We do need to compensate for this in [[Type.substituteFromType]] by expanding out
+     the type arguments of the qualifying type. An alternative solution would be to just
+     expand out all the type args of the qualifying type here.
 
      Note: this method is inteded for use by subclasses."
     // TODO why don't we make aggregateTypeArguments a member, too?

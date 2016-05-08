@@ -11,6 +11,8 @@ import com.vasileff.ceylon.model.internal {
 shared abstract sealed
 class Type() extends Reference() {
 
+    variable Type? resolvedMemo = null;
+
     shared actual formal TypeDeclaration declaration;
     shared formal Map<TypeParameter, Variance> varianceOverrides;
     shared formal Boolean isTypeConstructor;
@@ -122,6 +124,55 @@ class Type() extends Reference() {
     shared
     Boolean isContravariant(TypeParameter typeParameter)
         =>  variance(typeParameter) == contravariant;
+
+    shared Type resolved {
+        function compute() {
+            value declaration = this.declaration;
+            if (declaration is ClassOrInterface
+                    && !qualifyingType exists
+                    && !declaration is Alias
+                    && declaration.typeParameters.empty) {
+                return this;
+            }
+
+            if (isTypeConstructor) {
+                return this;
+            }
+
+            if (is UnionType declaration) {
+                return unionDeduped(caseTypes.map(Type.resolved), unit);
+            }
+
+            if (is IntersectionType declaration) {
+                return intersectionDedupedCanonical(
+                    satisfiedTypes.map(Type.resolved), unit);
+            }
+
+            value aliasedQualifyingType = qualifyingType?.resolved;
+            value aliasedTypeArguments = typeArgumentList.collect(Type.resolved);
+
+            if (is Alias declaration) {
+                "extendedType is not optional for [[Alias]]es"
+                assert (exists et = declaration.extendedType);
+                return et.resolved.substitute {
+                    aggregateTypeArguments {
+                        receivingType = aliasedQualifyingType;
+                        declaration = declaration;
+                        typeArguments = aliasedTypeArguments;
+                    };
+                    varianceOverrides;
+                };
+            }
+
+            return declaration.appliedType {
+                aliasedQualifyingType;
+                aliasedTypeArguments;
+                varianceOverrides;
+            };
+        }
+
+        return resolvedMemo else compute();
+    }
 
     shared
     Boolean isExactly(Type that) {
@@ -438,8 +489,6 @@ class Type() extends Reference() {
             return isTypeArgumentListAssignable(supertype, that);
         }
     }
-
-    shared Type resolved => nothing;
 
     shared actual Boolean equals(Object that) {
         if (!is Type that) {

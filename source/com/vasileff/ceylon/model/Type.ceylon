@@ -171,7 +171,11 @@ class Type() extends Reference() {
             };
         }
 
-        return resolvedMemo else compute();
+        if (exists existing = resolvedMemo) {
+            return existing;
+        }
+        value result = compute();
+        return resolvedMemo = result.resolvedMemo = result;
     }
 
     shared

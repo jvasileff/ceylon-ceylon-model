@@ -125,7 +125,7 @@ class Type() extends Reference() {
     Boolean isContravariant(TypeParameter typeParameter)
         =>  variance(typeParameter) == contravariant;
 
-    shared Type resolved {
+    shared Type resolvedAliases {
         function compute() {
             value declaration = this.declaration;
             if (declaration is ClassOrInterface
@@ -140,21 +140,21 @@ class Type() extends Reference() {
             }
 
             if (is UnionType declaration) {
-                return unionDeduped(caseTypes.map(Type.resolved), unit);
+                return unionDeduped(caseTypes.map(Type.resolvedAliases), unit);
             }
 
             if (is IntersectionType declaration) {
                 return intersectionDedupedCanonical(
-                    satisfiedTypes.map(Type.resolved), unit);
+                    satisfiedTypes.map(Type.resolvedAliases), unit);
             }
 
-            value aliasedQualifyingType = qualifyingType?.resolved;
-            value aliasedTypeArguments = typeArgumentList.collect(Type.resolved);
+            value aliasedQualifyingType = qualifyingType?.resolvedAliases;
+            value aliasedTypeArguments = typeArgumentList.collect(Type.resolvedAliases);
 
             if (is Alias declaration) {
                 "extendedType is not optional for [[Alias]]es"
                 assert (exists et = declaration.extendedType);
-                return et.resolved.substitute {
+                return et.resolvedAliases.substitute {
                     aggregateTypeArguments {
                         receivingType = aliasedQualifyingType;
                         declaration = declaration;
@@ -430,7 +430,7 @@ class Type() extends Reference() {
             assert (!is IntersectionType | UnionType | NothingDeclaration | UnknownType
                 | Constructor | TypeAlias thatDeclaration);
 
-            value supertype = getSupertype(thatDeclaration)?.resolved;
+            value supertype = getSupertype(thatDeclaration)?.resolvedAliases;
             if (!exists supertype) {
                 return false;
             }
@@ -471,7 +471,7 @@ class Type() extends Reference() {
                     // type, as long as it doesn't refine the
                     // member type
                     value thatQTSupertype
-                        =   thatQT.getSupertype(thatContainer)?.resolved;
+                        =   thatQT.getSupertype(thatContainer)?.resolvedAliases;
 
                     if (!exists thatQTSupertype) {
                         return false;

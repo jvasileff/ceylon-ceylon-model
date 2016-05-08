@@ -369,8 +369,8 @@ Boolean disjoint(Type a, Type b, Unit unit) {
 
     // we have to resolve aliases here, or computing supertype declarations gets
     // incredibly slow for the big stack of union type aliases in ceylon.ast
-    value ar = a.resolved;
-    value br = b.resolved;
+    value ar = a.resolvedAliases;
+    value br = b.resolvedAliases;
 
     if (isDisjointEnum(ar.declaration, br.declaration)) {
         return true;

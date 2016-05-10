@@ -6,7 +6,13 @@ import com.vasileff.ceylon.model {
     Variance,
     TypeDeclaration,
     covariant,
-    contravariant
+    contravariant,
+    ClassDefinition,
+    Package,
+    invariant,
+    InterfaceDefinition,
+    Class,
+    Interface
 }
 import com.vasileff.ceylon.model.internal {
     assertedTypeDeclaration
@@ -16,14 +22,45 @@ shared
 object jsonModelUtil {
 
     function getString(JsonObject json, String key) {
-        assert (is String string = json[key]);
-        return string;
+        assert (is String result = json[key]);
+        return result;
+    }
+
+    function getStringOrNull(JsonObject json, String key) {
+        assert (is String? result = json[key]);
+        return result;
+    }
+
+    suppressWarnings("unusedDeclaration")
+    function getInteger(JsonObject json, String key) {
+        assert (is Integer result = json[key]);
+        return result;
+    }
+
+    function getIntegerOrNull(JsonObject json, String key) {
+        assert (is Integer? result = json[key]);
+        return result;
     }
 
     suppressWarnings("unusedDeclaration")
     function getArrayOrNull(JsonObject json, String key) {
-        assert (is JsonArray? string = json[key]);
-        return string;
+        assert (is JsonArray? result = json[key]);
+        return result;
+    }
+
+    function getArrayOrEmpty(JsonObject json, String key) {
+        assert (is JsonArray? result = json[key]);
+        return result else [];
+    }
+
+    function getObjectOrNull(JsonObject json, String key) {
+        assert (is JsonObject? result = json[key]);
+        return result;
+    }
+
+    function getObjectOrEmpty(JsonObject json, String key) {
+        assert (is JsonObject? result = json[key]);
+        return result else emptyMap;
     }
 
     function getObjectOrArrayOrNull(JsonObject json, String key) {
@@ -49,7 +86,6 @@ object jsonModelUtil {
                  else m
             else null;
 
-    shared
     Declaration? declarationFromType(Scope scope, JsonObject json)
         =>  scope.findDeclaration {
                 declarationName = getString(json, keyName).split('.'.equals);
@@ -95,7 +131,7 @@ object jsonModelUtil {
             value typeArgs
                 =   map(mapPairs((TypeParameter typeParameter, Anything jsonType) {
                         assert (is JsonObject jsonType);
-                        return typeParameter -> loadType(declaration, jsonType);
+                        return typeParameter -> parseType(declaration, jsonType);
                     }, declaration.typeParameters, json));
 
             value overrides
@@ -125,7 +161,7 @@ object jsonModelUtil {
                 =   map(typeParametersToJson.map((entry) {
                         value typeParameter -> jsonType = entry;
                         assert (is JsonObject jsonType);
-                        return typeParameter -> loadType(declaration, jsonType);
+                        return typeParameter -> parseType(declaration, jsonType);
                     }));
 
             value overrides
@@ -140,16 +176,202 @@ object jsonModelUtil {
     }
 
     shared
-    Type loadType(Scope scope, JsonObject json)
+    Type parseType(Scope scope, JsonObject json)
             // TODO look at JsonPackage.getTypeFromJson. It has a lot more code?
-        =>  let (declaration
-                =   assertedTypeDeclaration {
-                        declarationFromType(scope, json);
-                    })
-            let ([typeArguments, overrides]
-                =   typeArgumentMaps {
-                        declaration;
-                        getObjectOrArrayOrNull(json, keyTypeParams);
-                    })
-            declaration.type.substitute(typeArguments, overrides);
+        =>  if (getString(json, keyName) == "$U")
+            then scope.unit.unknownType
+            else let (declaration
+                    =   assertedTypeDeclaration {
+                            declarationFromType(scope, json);
+                        })
+                let ([typeArguments, overrides]
+                    =   typeArgumentMaps {
+                            declaration;
+                            getObjectOrArrayOrNull(json, keyTypeParams);
+                        })
+                declaration.type.substitute(typeArguments, overrides);
+
+    Variance parseDsVariance(JsonObject json) {
+        if (is String dv = json[keyDsVariance]) {
+            switch (dv)
+            case ("out") {
+                return covariant;
+            }
+            case ("in") {
+                return contravariant;
+            }
+            else {
+                throw Exception("invalid variance ``dv``");
+            }
+        }
+        return invariant;
+    }
+
+    shared
+    TypeParameter parseTypeParameter(Scope scope, JsonObject json)
+        =>  TypeParameter {
+                container = scope;
+                name = getString(json, keyName);
+                variance = parseDsVariance(json);
+                isTypeConstructor = false; // TODO
+
+                defaultTypeArgumentLG
+                    =   if (exists da = getObjectOrNull(json, keyDefault))
+                        then typeFromJsonLG(da)
+                        else null;
+
+                caseTypesLG
+                    =   getArrayOrEmpty(json, keyCases).map((s) {
+                            assert (is JsonObject s);
+                            return typeFromJsonLG(s);
+                        });
+
+                satisfiedTypesLG
+                    =   getArrayOrEmpty(json, keySatisfies).map((s) {
+                            assert (is JsonObject s);
+                            return typeFromJsonLG(s);
+                        });
+            };
+
+    shared
+    Interface parseInterface(Scope scope, JsonObject json) {
+
+        value packedAnnotations
+            =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
+
+        value declaration
+            =   InterfaceDefinition {
+                    container = scope;
+                    unit = scope.pkg.defaultUnit;
+                    name = getString(json, keyName);
+
+                    satisfiedTypesLG
+                        =   getArrayOrEmpty(json, keySatisfies).map((s) {
+                                assert (is JsonObject s);
+                                return typeFromJsonLG(s);
+                            });
+
+                    isShared = packedAnnotations.get(sharedBit);
+                    isActual = packedAnnotations.get(actualBit);
+                    isFormal = packedAnnotations.get(formalBit);
+                    isDefault = packedAnnotations.get(defaultBit);
+                    isSealed = packedAnnotations.get(sealedBit);
+                    isFinal = packedAnnotations.get(finalBit);
+                    isAnnotation = packedAnnotations.get(annotationBit);
+                };
+
+        for (tpJson in getArrayOrEmpty(json, keyTypeParams)) {
+            assert (is JsonObject tpJson);
+            declaration.addMember(parseTypeParameter(declaration, tpJson));
+        }
+
+        for (classJson in getObjectOrEmpty(json, keyClasses).items) {
+            assert (is JsonObject classJson);
+            declaration.addMember(parseClass(declaration, classJson));
+        }
+
+        for (interfaceJson in getObjectOrEmpty(json, keyClasses).items) {
+            assert (is JsonObject interfaceJson);
+            declaration.addMember(parseInterface(declaration, interfaceJson));
+        }
+
+        return declaration;
+    }
+
+    shared
+    Class parseClass(Scope scope, JsonObject json) {
+
+        value packedAnnotations
+            =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
+
+        value declaration
+            =   ClassDefinition {
+                    container = scope;
+                    name = getString(json, keyName);
+                    unit = scope.pkg.defaultUnit;
+
+                    satisfiedTypesLG
+                        =   getArrayOrEmpty(json, keySatisfies).map((s) {
+                                assert (is JsonObject s);
+                                return typeFromJsonLG(s);
+                            });
+
+                    extendedTypeLG
+                        =   if (is JsonObject et = json[keyExtendedType])
+                            then typeFromJsonLG(et)
+                            else null;
+
+                    isShared = packedAnnotations.get(sharedBit);
+                    isActual = packedAnnotations.get(actualBit);
+                    isFormal = packedAnnotations.get(formalBit);
+                    isDefault = packedAnnotations.get(defaultBit);
+                    isSealed = packedAnnotations.get(sealedBit);
+                    isFinal = packedAnnotations.get(finalBit);
+                    isAnnotation = packedAnnotations.get(annotationBit);
+                    isAbstract = packedAnnotations.get(abstractBit);
+                };
+
+        for (tpJson in getArrayOrEmpty(json, keyTypeParams)) {
+            assert (is JsonObject tpJson);
+            declaration.addMember(parseTypeParameter(declaration, tpJson));
+        }
+
+        for (classJson in getObjectOrEmpty(json, keyClasses).items) {
+            assert (is JsonObject classJson);
+            declaration.addMember(parseClass(declaration, classJson));
+        }
+
+        for (interfaceJson in getObjectOrEmpty(json, keyClasses).items) {
+            assert (is JsonObject interfaceJson);
+            declaration.addMember(parseInterface(declaration, interfaceJson));
+        }
+
+        return declaration;
+    }
+
+    void loadToplevel(Package pkg, JsonObject item) {
+        assert (exists metaType = getStringOrNull(item, keyMetatype));
+
+        if (metaType == metatypeClass) {
+            pkg.defaultUnit.addDeclaration(parseClass(pkg, item));
+        }
+        else if (metaType == metatypeInterface) {
+            pkg.defaultUnit.addDeclaration(parseInterface(pkg, item));
+        }
+
+        // attribute
+        // getter
+        // method
+        // object
+        // alias
+    }
+
+    shared
+    void loadToplevelDeclarations(Package pkg, JsonObject json) {
+        for (key -> item in json) {
+            if (key.startsWith("$pkg-")) {
+                continue;
+            }
+
+            assert (is JsonObject item);
+            loadToplevel(pkg, item);
+        }
+    }
+
+    "Returns `true` if the toplevel declaration was found."
+    shared
+    Boolean loadToplevelDeclaration(Package pkg, String name, JsonObject packageJson) {
+        if (name.startsWith("$pkg-")) {
+            return false;
+        }
+
+        value item = getObjectOrNull(packageJson, name);
+
+        if (!exists item) {
+            return false;
+        }
+
+        loadToplevel(pkg, item);
+        return true;
+    }
 }

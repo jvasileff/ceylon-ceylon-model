@@ -5,7 +5,7 @@ import com.vasileff.ceylon.model {
 
 shared
 Type typeFromJson(JsonObject json, Scope scope)
-    =>  jsonModelUtil.loadType(scope, json);
+    =>  jsonModelUtil.parseType(scope, json);
 
 shared
 Type typeFromJsonLG(JsonObject json)(Scope scope)

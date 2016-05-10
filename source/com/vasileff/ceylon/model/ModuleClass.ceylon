@@ -40,7 +40,7 @@ class Module(name, version, unitLG = null) {
         // use a TreeSet.
         =   ArrayList<ModuleImport>();
 
-    shared
+    shared default
     MutableSet<Package> packages
         =   HashSet<Package>();
 

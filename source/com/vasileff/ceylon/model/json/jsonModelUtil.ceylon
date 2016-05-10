@@ -358,7 +358,10 @@ object jsonModelUtil {
         }
     }
 
-    "Returns `true` if the toplevel declaration was found."
+    "Returns `true` if the toplevel declaration was found.
+
+     Note: this method is not idempotent! Multiple calls to this method with the same
+     arguments will result in the package having redundant declarations."
     shared
     Boolean loadToplevelDeclaration(Package pkg, String name, JsonObject packageJson) {
         if (name.startsWith("$pkg-")) {

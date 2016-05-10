@@ -46,7 +46,7 @@ interface Scope of Package | Element {
      Note that if there are multiple declarations with the same name (as may be the case
      with native headers and implementations), the first one that is found will be
      returned."
-    shared see(`value Declaration.isResolvable`)
+    shared default see(`value Declaration.isResolvable`)
     Declaration? getDirectMember(String name)
         =>  members.get(name).find(Declaration.isResolvable);
 

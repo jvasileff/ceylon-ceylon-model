@@ -98,7 +98,7 @@ class Package(name, mod, Unit(Package)? unitLG = null) satisfies Scope {
         return u;
     }
 
-    shared actual
+    shared actual default
     ListMultimap<String, Declaration> members
         =>  memberMap else (memberMap
             =   LinkedListMultimap {

@@ -8,6 +8,7 @@ shared String keyPackedAnnotations = "pa";
 shared String keyType          = "$t";
 shared String keyReturnType    = "$rt";
 shared String keyTypes         = "l";
+shared String keyTypeArgs      = "ta";
 shared String keyTypeParams    = "tp";
 shared String keyMetatype      = "mt";
 shared String keyModule        = "md";

@@ -88,7 +88,7 @@ interface Scope of Package | Element {
      with native headers and implementations), the first one that is found will be
      returned."
     shared default see(`value Declaration.isResolvable`)
-    Declaration? getBase(String name, Unit unit) {
+    Declaration? getBase(String name, Unit? unit = null) {
         // shared and unshared direct members
         if (exists member = getDirectMember(name)) {
             return member;

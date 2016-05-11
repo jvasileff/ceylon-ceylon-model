@@ -108,9 +108,9 @@ class Package(name, mod, Unit(Package)? unitLG = null) satisfies Scope {
                 });
 
     shared actual
-    Declaration? getBase(String name, Unit unit) {
+    Declaration? getBase(String name, Unit? unit) {
         // this implements the rule that imports hide toplevel members of a package
-        if (exists declaration = unit.getImportedDeclaration(name)) {
+        if (exists unit, exists declaration = unit.getImportedDeclaration(name)) {
             return declaration;
         }
 
@@ -119,7 +119,7 @@ class Package(name, mod, Unit(Package)? unitLG = null) satisfies Scope {
         }
 
         // finally, try the implicitly imported language module
-        return unit.ceylonLanguagePackage.getDirectMember(name);
+        return this.unit.ceylonLanguagePackage.getDirectMember(name);
     }
 
     shared actual

@@ -39,12 +39,20 @@ object jsonModelUtil {
                  else m
             else null;
 
-    Declaration? declarationFromType(Scope scope, JsonObject json)
-        =>  scope.findDeclaration {
+    Declaration? declarationFromType(Scope scope, JsonObject json) {
+        value packageName = getPackageName(scope, json);
+        if (!exists packageName) {
+            // it's a type parameter in scope
+            return scope.getBase(getString(json, keyName));
+        }
+        else {
+            return scope.findDeclaration {
                 declarationName = getString(json, keyName).split('.'.equals);
-                packageName = getPackageName(scope, json);
+                packageName;
                 moduleName = getModuleName(json);
             };
+        }
+    }
 
     "The input map be:
 
@@ -55,8 +63,7 @@ object jsonModelUtil {
 
      - or [[null]], in which case `null` will be returned."
     [Map<TypeParameter, Type>, Map<TypeParameter, Variance>]
-    typeArgumentMaps(TypeDeclaration declaration, JsonArray | JsonObject | Null json) {
-
+    typeArgumentMaps(TypeDeclaration declaration, Scope scope, JsonArray | JsonObject | Null json) {
         function useSiteOverrideEntry(
                 TypeParameter typeParameter, JsonObject typeArgumentJson) {
 
@@ -81,10 +88,11 @@ object jsonModelUtil {
             return [emptyMap, emptyMap];
         }
         case (is JsonArray) {
+            // TODO does JsonArray still occur? Probably for dart interop models
             value typeArgs
                 =   map(mapPairs((TypeParameter typeParameter, Anything jsonType) {
                         assert (is JsonObject jsonType);
-                        return typeParameter -> parseType(declaration, jsonType);
+                        return typeParameter -> parseType(scope, jsonType);
                     }, declaration.typeParameters, json));
 
             value overrides
@@ -114,7 +122,7 @@ object jsonModelUtil {
                 =   map(typeParametersToJson.map((entry) {
                         value typeParameter -> jsonType = entry;
                         assert (is JsonObject jsonType);
-                        return typeParameter -> parseType(declaration, jsonType);
+                        return typeParameter -> parseType(scope, jsonType);
                     }));
 
             value overrides
@@ -151,7 +159,9 @@ object jsonModelUtil {
                 let ([typeArguments, overrides]
                     =   typeArgumentMaps {
                             declaration;
-                            getObjectOrArrayOrNull(json, keyTypeParams);
+                            scope;
+                            getObjectOrArrayOrNull(json, keyTypeArgs)
+                            else getObjectOrArrayOrNull(json, keyTypeParams);
                         })
                 declaration.type.substitute(typeArguments, overrides);
 

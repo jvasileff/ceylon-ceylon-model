@@ -128,6 +128,7 @@ class Package(name, mod, Unit(Package)? unitLG = null) satisfies Scope {
 
     shared actual
     Boolean equals(Object that)
+        // FIXME also check module == ?
         =>  if (!is Package that)
             then false
             else this === that

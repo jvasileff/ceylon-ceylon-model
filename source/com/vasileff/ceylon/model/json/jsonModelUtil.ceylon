@@ -21,53 +21,6 @@ import com.vasileff.ceylon.model.internal {
 shared
 object jsonModelUtil {
 
-    function getString(JsonObject json, String key) {
-        assert (is String result = json[key]);
-        return result;
-    }
-
-    function getStringOrNull(JsonObject json, String key) {
-        assert (is String? result = json[key]);
-        return result;
-    }
-
-    suppressWarnings("unusedDeclaration")
-    function getInteger(JsonObject json, String key) {
-        assert (is Integer result = json[key]);
-        return result;
-    }
-
-    function getIntegerOrNull(JsonObject json, String key) {
-        assert (is Integer? result = json[key]);
-        return result;
-    }
-
-    suppressWarnings("unusedDeclaration")
-    function getArrayOrNull(JsonObject json, String key) {
-        assert (is JsonArray? result = json[key]);
-        return result;
-    }
-
-    function getArrayOrEmpty(JsonObject json, String key) {
-        assert (is JsonArray? result = json[key]);
-        return result else [];
-    }
-
-    function getObjectOrNull(JsonObject json, String key) {
-        assert (is JsonObject? result = json[key]);
-        return result;
-    }
-
-    function getObjectOrEmpty(JsonObject json, String key) {
-        assert (is JsonObject? result = json[key]);
-        return result else emptyMap;
-    }
-
-    function getObjectOrArrayOrNull(JsonObject json, String key) {
-        assert (is JsonObject | JsonArray | Null result = json[key]);
-        return result;
-    }
-
     function getModuleName(JsonObject json)
         =>  if (is String m = json[keyModule])
             then if (m == "$")
@@ -174,6 +127,17 @@ object jsonModelUtil {
             return [typeArgs, overrides];
         }
     }
+
+    shared
+    [String+] parseModuleName(JsonObject json) {
+        assert (nonempty result
+            =   getString(json, keyModuleName).split('.'.equals).sequence());
+        return result;
+    }
+
+    shared
+    String? parseModuleVersion(JsonObject json)
+        =>  getStringOrNull(json, keyModuleVersion);
 
     shared
     Type parseType(Scope scope, JsonObject json)

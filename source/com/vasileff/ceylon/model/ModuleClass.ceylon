@@ -40,6 +40,7 @@ class Module(name, version, unitLG = null) {
         // use a TreeSet.
         =   ArrayList<ModuleImport>();
 
+    // TODO make this a private map; add shared addPackage method
     shared default
     MutableSet<Package> packages
         =   HashSet<Package>();
@@ -59,7 +60,7 @@ class Module(name, version, unitLG = null) {
                 else Unit(namesakePackage);
     }
 
-    shared
+    shared default
     Package? findDirectPackage(String qualifiedName)
         =>  packages.find((p) => p.qualifiedName == qualifiedName);
 

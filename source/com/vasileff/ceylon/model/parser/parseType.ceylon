@@ -12,7 +12,9 @@ import com.vasileff.ceylon.model {
 }
 
 shared
-Type parseType(String input, Scope scope) {
+Type parseType(String input, Scope scope, {Type*} substitutions = []) {
+
+    Iterator<Type> substitutionIterator = substitutions.iterator();
 
     variable List<Token> tokens
         =   TokenStream(input)
@@ -189,15 +191,45 @@ Type parseType(String input, Scope scope) {
                 // FIXME cleanup; check before consuming.
                 // FIXME detect "package" and return unit.package.
                 //       also document lident (. lident)* `::`
+                //       and '$' and '.'
+                value packageName = StringBuilder();
 
-                value token = tokens.first;
-                if (!is LIdentifier token) {
+                switch (token = tokens.first)
+                case (is DollarSign) {
+                    // '$' is a shortcut for "ceylon.language"
+                    consume();
+                    if (tokens.first is MemberOp) {
+                        consume();
+                        assert (is LIdentifier identifer = expect("LIdentifier"));
+                        packageName.append("ceylon.language.");
+                        packageName.append(identifer.identifier);
+                    }
+                    else {
+                        expect("DoubleColon");
+                        return scope.unit.ceylonLanguagePackage;
+                    }
+                }
+                case (is MemberOp) {
+                    // '.' is a shortcut for the scope's package
+                    consume();
+                    if (is LIdentifier identifier = tokens.first) {
+                        consume();
+                        packageName.append(scope.pkg.qualifiedName);
+                        packageName.append(".");
+                        packageName.append(identifier.identifier);
+                    }
+                    else {
+                        expect("DoubleColon");
+                        return scope.mod.unit.pkg;
+                    }
+                }
+                case (is LIdentifier) {
+                    consume();
+                    packageName.append(token.identifier);
+                }
+                else {
                     return null;
                 }
-
-                value packageName = StringBuilder();
-                packageName.append(token.identifier);
-                consume();
 
                 while (tokens.first is MemberOp) {
                     consume();
@@ -373,6 +405,11 @@ Type parseType(String input, Scope scope) {
                 case (is LBrace) {
                     return parseIterableType();
                 }
+                case (is Caret) {
+                    consume();
+                    assert (is Type t = substitutionIterator.next());
+                    return t;
+                }
                 else {
                     return parseQualifiedType();
                 }
@@ -509,7 +546,8 @@ Type parseType(String input, Scope scope) {
             else {
                 variable {Type+} types = [type];
                 while (tokens.first is UnionOp) {
-                    types.follow(parseIntersectionType());
+                    consume();
+                    types = types.follow(parseIntersectionType());
                 }
                 return union(types.sequence().reversed, scope.unit);
             }

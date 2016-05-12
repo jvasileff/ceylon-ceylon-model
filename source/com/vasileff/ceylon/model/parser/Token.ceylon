@@ -142,7 +142,7 @@ shared abstract
 class SymbolToken()
         of Comma | LBrace | RBrace | LParen | RParen | LBracket | RBracket | QuestionMark
             | MemberOp | Specify | SumOp | ProductOp | EntryOp | IntersectionOp | UnionOp
-            | SmallerOp | LargerOp | DoubleColon
+            | SmallerOp | LargerOp | DoubleColon | Caret | DollarSign
         extends Token() {}
 
 "Two colons: ‘`::`’"
@@ -251,6 +251,18 @@ shared class SmallerOp() extends SymbolToken() {
 shared class LargerOp() extends SymbolToken() {
     shared actual String text => ">";
     shared actual String type => "LargerOp";
+}
+
+"A dollar sign, which serves as a shortcut for the language module: ‘`$`’"
+shared class DollarSign() extends SymbolToken() {
+    shared actual String text => "$";
+    shared actual String type => "DollarSign";
+}
+
+"A caret, which serves as a placeholder for a type: ‘`^`’"
+shared class Caret() extends SymbolToken() {
+    shared actual String text => "^";
+    shared actual String type => "Caret";
 }
 
 "An erroneous token."

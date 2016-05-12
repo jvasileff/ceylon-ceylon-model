@@ -180,6 +180,8 @@ class TokenStream(List<Character> characters) satisfies {Token*} {
             case ('|') { consume(); return UnionOp(); }
             case ('<') { consume(); return SmallerOp(); }
             case ('>') { consume(); return LargerOp(); }
+            case ('^') { consume(); return Caret(); }
+            case ('$') { consume(); return DollarSign(); }
             case ('-') {
                 if (eq(characters[1], '>')) {
                     consume(2);

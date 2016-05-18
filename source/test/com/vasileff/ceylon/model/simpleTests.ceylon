@@ -512,7 +512,7 @@ void memberGenericTypesJson() {
                  """;
             };
 
-    value loadedType1 = jsonModelUtil.loadType(pkg, jsonType1);
+    value loadedType1 = jsonModelUtil.parseType(pkg, jsonType1);
 
     assertEquals {
         expected = map {
@@ -543,7 +543,7 @@ void memberGenericTypesJson() {
                 }
             };
 
-    value loadedType2 = jsonModelUtil.loadType(pkg, jsonType2);
+    value loadedType2 = jsonModelUtil.parseType(pkg, jsonType2);
 
     assertEquals {
         expected = map {

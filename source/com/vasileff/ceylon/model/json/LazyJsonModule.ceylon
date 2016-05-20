@@ -1,11 +1,13 @@
+import ceylon.collection {
+    MutableSet
+}
+
 import com.vasileff.ceylon.model {
     Module,
     Package,
     Unit,
-    NothingDeclaration
-}
-import ceylon.collection {
-    MutableSet
+    NothingDeclaration,
+    ModuleImport
 }
 
 shared
@@ -54,5 +56,16 @@ class LazyJsonModule(
         }
 
         return null;
+    }
+
+    shared
+    void initializeImports([Module*] importedModules) {
+        // For now, just add them all as shared imports
+        // TODO parse json for import information, add each import with correct
+        //      annotations, etc., throw if 'importedModules' is missing imports.
+        moduleImports.addAll {
+            importedModules.map((mod)
+                =>  ModuleImport(mod, true));
+        };
     }
 }

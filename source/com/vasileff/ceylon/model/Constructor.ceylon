@@ -21,7 +21,7 @@ class Constructor(
     shared actual [] caseValues => [];
     shared actual Boolean declaredVoid => false;
     shared actual Null qualifier => null;
-    shared actual Null refinedDeclaration => null;
+    shared actual Constructor refinedDeclaration => this;
     shared actual [] satisfiedTypes => [];
     shared actual Null selfType => null;
 

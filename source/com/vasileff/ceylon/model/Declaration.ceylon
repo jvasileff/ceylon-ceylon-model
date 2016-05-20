@@ -21,7 +21,26 @@ class Declaration() of TypeDeclaration | TypedDeclaration extends Element() {
      See also https://github.com/ceylon/ceylon/issues/162"
     shared formal Integer? qualifier;
     shared formal String name;
-    shared formal Declaration? refinedDeclaration;
+
+    variable Declaration? refinedDeclarationMemo = null;
+
+    Declaration locateRefinedDeclaration() {
+        if (! isActual) {
+            return this;
+        }
+
+        "Actual members must be inside a class."
+        assert(is ClassOrInterface container = this.container);
+
+        "All declarations have a refined declaration."
+        assert(exists ret = container.getMember(name)?.refinedDeclaration);
+        return ret;
+    }
+
+    shared default
+    Declaration refinedDeclaration
+        =>  refinedDeclarationMemo
+            else (refinedDeclarationMemo = locateRefinedDeclaration());
 
     shared formal Boolean isAnnotation;
     shared formal Boolean isActual;

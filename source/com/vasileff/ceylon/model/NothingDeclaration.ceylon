@@ -14,7 +14,7 @@ class NothingDeclaration(unit) extends TypeDeclaration() {
     shared actual Boolean inherits(ClassOrInterface | TypeParameter that) => true;
     shared actual String name => "Nothing";
     shared actual Null qualifier => null;
-    shared actual Null refinedDeclaration => null;
+    shared actual NothingDeclaration refinedDeclaration => this;
     shared actual [] satisfiedTypes => [];
     shared actual Null selfType => null;
     shared actual [] typeParameters => [];

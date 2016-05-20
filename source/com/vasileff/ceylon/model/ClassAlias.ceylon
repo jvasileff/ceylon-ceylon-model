@@ -1,8 +1,8 @@
 shared
 class ClassAlias(
         container, name, extendedType, parameterLists = [ParameterList.empty],
-        refinedDeclaration = null, isAbstract = false, isActual = false,
-        isDefault = false, isDeprecated = false, isFormal = false, isSealed = false,
+        isAbstract = false, isActual = false, isDefault = false,
+        isDeprecated = false, isFormal = false, isSealed = false,
         isShared = false, qualifier = null, unit = container.pkg.defaultUnit)
         extends Class() {
 
@@ -11,7 +11,6 @@ class ClassAlias(
     shared actual Boolean isAbstract;
     shared actual String name;
     shared actual [ParameterList+] parameterLists;
-    shared actual Class? refinedDeclaration;
     shared actual Unit unit;
     shared actual Integer? qualifier;
 

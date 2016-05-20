@@ -1,12 +1,15 @@
 shared
-class Setter(getter, refinedDeclaration = null, isActual = false, isDeprecated = false)
+class Setter(getter, isActual = false, isDeprecated = false)
         extends FunctionOrValue() {
 
     shared Value getter;
 
     shared actual Boolean isActual;
     shared actual Boolean isDeprecated;
-    shared actual Setter? refinedDeclaration;
+    shared actual Setter refinedDeclaration {
+        assert(is Setter c = super.refinedDeclaration);
+        return c;
+    }
 
     shared actual Scope container => getter.container;
     shared actual String name => getter.name;

@@ -65,7 +65,6 @@ class InterfaceDefinition(
     shared actual Boolean isStatic;
 
     shared actual Type extendedType => unit.anythingDeclaration.type;
-    shared actual Class? refinedDeclaration => null;
 
     shared actual
     Boolean canEqual(Object other)

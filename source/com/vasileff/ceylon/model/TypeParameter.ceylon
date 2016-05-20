@@ -48,7 +48,7 @@ class TypeParameter(
 
     shared actual Type extendedType => unit.anythingDeclaration.type;
     shared actual Null qualifier => null;
-    shared actual Null refinedDeclaration => null;
+    shared actual TypeParameter refinedDeclaration => this;
     shared actual Null selfType => null;
     shared actual Unit unit => container.unit;
 

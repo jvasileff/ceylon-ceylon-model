@@ -4,7 +4,7 @@ import com.vasileff.ceylon.model.internal {
 
 shared
 class ClassDefinition(
-        container, name, extendedTypeLG, qualifier = null, refinedDeclaration = null,
+        container, name, extendedTypeLG, qualifier = null,
         satisfiedTypesLG = [], caseTypesLG = [], caseValues = [],
         isShared = false, isFormal = false, isActual = false, isDefault = false,
         isAnnotation = false, isDeprecated = false, isStatic = false, isSealed = false,
@@ -82,7 +82,6 @@ class ClassDefinition(
     shared actual Scope container;
     shared actual String name;
     shared actual Integer? qualifier;
-    shared actual Class? refinedDeclaration;
     shared actual Unit unit;
 
     shared actual Boolean isAbstract;

@@ -13,7 +13,7 @@ class UnknownType(unit) extends TypeDeclaration() {
     shared actual String name => "unknown";
     shared actual Package pkg => unit.pkg;
     shared actual Null qualifier => null;
-    shared actual Null refinedDeclaration => null;
+    shared actual UnknownType refinedDeclaration => this;
     shared actual Type[] satisfiedTypes => [];
     shared actual Null selfType => null;
     shared actual TypeParameter[] typeParameters => [];

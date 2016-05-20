@@ -1,5 +1,5 @@
 shared abstract
-class Function(name, refinedDeclaration, typeLG)
+class Function(name, typeLG)
         extends FunctionOrValue()
         satisfies Functional & Generic {
 
@@ -15,7 +15,11 @@ class Function(name, refinedDeclaration, typeLG)
                 else (typeMemo = typeLG(this)));
 
     shared actual String name;
-    shared actual Function? refinedDeclaration;
+
+    shared actual Function refinedDeclaration {
+        assert(is Function f = super.refinedDeclaration);
+        return f;
+    }
 
     shared actual
     String string

@@ -600,7 +600,6 @@ Map<TypeParameter, Type> aggregateTypeArguments(
             if (!exists aqt) {
                 break;
             }
-            assert (exists aqt);
             result.putAll(aqt.typeArguments);
             dt = aqt.qualifyingType;
             d = aqt.declaration;

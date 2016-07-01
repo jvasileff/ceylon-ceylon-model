@@ -20,10 +20,14 @@ class Type() extends Reference() {
     shared formal TypeParameter? typeConstructorParameter;
 
     shared Boolean isAnything => declaration.isAnything;
+    shared Boolean isEmpty => declaration.isEmpty;
     shared Boolean isEntry => declaration.isEntry;
+    shared Boolean isIterable => declaration.isIterable;
     shared Boolean isNothing => declaration.isNothing;
-    shared Boolean isObject => declaration.isObject;
     shared Boolean isNull => declaration.isNull;
+    shared Boolean isObject => declaration.isObject;
+    shared Boolean isSequence => declaration.isSequence;
+    shared Boolean isSequential => declaration.isSequential;
     shared Boolean isTuple => declaration.isTuple;
     shared Boolean isUnknown => declaration is UnknownType;
     shared Boolean isClassOrInterface => declaration is ClassOrInterface;

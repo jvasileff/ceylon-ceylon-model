@@ -1325,6 +1325,14 @@ class Type() extends Reference() {
     }
 
     shared
+    Type withNullEliminated
+        =>  if (declaration.inherits(unit.nullDeclaration)) then
+                unit.nothingDeclaration.type
+            else if (isUnion) then
+                unionDeduped(caseTypes.map(Type.withNullEliminated), unit)
+            else this;
+
+    shared
     String formatEscaped()
         =>  format {
                 escapeLowercased = true;
@@ -1383,12 +1391,22 @@ class Type() extends Reference() {
 
                 if (printQualifier, exists qualifier = declaration.qualifier) {
                     // TODO We might want to make the qualifier an "official" part of the
-                    //      declaration's name, so that declaration.qualifiedNames would be
-                    //      unique. This code would then be removed.
+                    //      declaration's name, so that declaration.qualifiedNames would
+                    //      be unique. This code would then be removed.
                     sb.append(qualifier.string);
                 }
 
                 printSimpleDeclarationName(sb, declaration);
+            }
+
+            void printWithAnglesIf(Boolean needsAngles, Type type) {
+                if (needsAngles) {
+                    sb.append("<");
+                }
+                printType(sb, type);
+                if (needsAngles) {
+                    sb.append(">");
+                }
             }
 
             void printSimpleProducedTypeName(StringBuilder sb, Type type) {
@@ -1396,14 +1414,10 @@ class Type() extends Reference() {
 
                 if (printQualifyingType) {
                     if (exists qt = type.qualifyingType, qt.declaration.isNamed) {
-                        value isComplex = qt.isIntersection || qt.isUnion;
-                        if (isComplex) {
-                            sb.append("<");
-                        }
-                        printType(sb, qt);
-                        if (isComplex) {
-                            sb.append("<");
-                        }
+                        printWithAnglesIf {
+                            needsAngles = qt.isIntersection || qt.isUnion;
+                            qt;
+                        };
                         sb.append(".");
                         fullyQualified = false;
                     }
@@ -1443,16 +1457,331 @@ class Type() extends Reference() {
                 }
             }
 
-            // TODO handle abbreviations
-            // abbreviateOptional
-            // abbreviateEmpty
-            // abbreviateHomoTuple
-            // abbreviateSequential
-            // abbreviateSequence
-            // abbreviateIterable
-            // abbreviateEntry
-            // abbreviateCallable
-            // abbreviateTuple
+            "Is [[type]] a `Tuple` with a minimal `Element` type and an ultimate
+             `Rest` type of `Empty`, `Sequential`, or `Sequence`? And, if any element
+             is optional, are all subsequent elements optional?"
+            function isSimpleWellFormedTuple(variable Type type) {
+                if (!type.isTuple) {
+                    return false;
+                }
+
+                assert (exists elementTypes = unit.getTupleElementTypes(type));
+                [Type*] allTypes;
+                if (unit.isTupleLengthUnbounded(type)) {
+                    assert (exists lastType
+                            = elementTypes.last);
+
+                    if (exists lastElementType
+                            =   unit.getSequentialElementType(lastType)) {
+                        allTypes
+                            =   elementTypes.exceptLast
+                                    .chain([lastElementType])
+                                    .sequence();
+                    }
+                    else {
+                        // Rest doesn't satisfy its constraint.
+                        return false;
+                    }
+                }
+                else {
+                    allTypes = elementTypes;
+                }
+
+                variable value index = -1;
+                variable value optional = false;
+
+                while (true) {
+                    index++;
+                    if (type.isUnion) {
+                        // one of the two must be []
+                        value cases = type.caseTypes.sequence();
+                        if (cases.size != 2) {
+                            return false;
+                        }
+                        assert (exists first = cases[0]);
+                        assert (exists second = cases[1]);
+                        if (first.isEmpty) {
+                            type = second;
+                        }
+                        else if (second.isEmpty) {
+                            type = first;
+                        }
+                        else {
+                            return false;
+                        }
+                        optional = true;
+                    }
+                    else if (optional && !type.isSequential && !type.isEmpty) {
+                        // After the first optional, the rest must be optional
+                        return false;
+                    }
+
+                    if (type.isEmpty || type.isSequence || type.isSequential) {
+                        return true;
+                    }
+                    else if (type.isTuple) {
+                        value typeArguments = type.typeArgumentList.sequence();
+                        assert (exists tupleElement = typeArguments[0]);
+                        assert (exists rest = typeArguments[2]);
+
+                        value tupleElements
+                            =   unionDeduped(allTypes.skip(index), unit);
+
+                        if (!tupleElements.isExactly(tupleElement)) {
+                            return false;
+                        }
+                        type = rest;
+                    }
+                    else {
+                        return false;
+                    }
+                }
+            }
+
+            function abbreviateOptional(Type type)
+                =>  if (type.isUnion)
+                    then let (caseTypes = type.caseTypes.take(3).sequence())
+                         caseTypes.size == 2 && caseTypes.any(Type.isNull)
+                    else false;
+
+            function abbreviateTuple(Type type)
+                =>  isSimpleWellFormedTuple(type);
+
+            function abbreviateHomogeneousTuple(Type type)
+                =>  type.unit.getHomogeneousTupleLength(type) exists;
+
+            function abbreviateEntry(Type type)
+                =>  if (exists [keyType, itemType]
+                            =   type.unit.getEntryKeyItemTypes(type))
+                    then !keyType.isEntry && !itemType.isEntry
+                    else false;
+
+            function abbreviateEmpty(Type type)
+                =>  type.isEmpty;
+
+            function abbreviateSequence(Type type)
+                =>  type.isSequence;
+
+            function abbreviateSequential(Type type)
+                =>  type.isSequential;
+
+            function abbreviateIterable(Type type) {
+                if (!type.isIterable) {
+                    return false;
+                }
+                assert (exists absentType = type.typeArgumentList.getFromFirst(1));
+                return absentType.isNull || absentType.isNothing;
+            }
+
+            function abbreviateCallable(Type type)
+                =>  type.isInterface
+                    && type.declaration == type.unit.callableDeclaration;
+
+            Boolean abbreviateCallableArg(Type type) {
+                if (type.isUnion) {
+                    value caseTypes = type.caseTypes.sequence();
+                    if (caseTypes.size == 2) {
+                        // possibly a single optional parameter, like 'String=', but
+                        // abbreviateTuple() returns for '[String=]', which is formatted
+                        // as '[]|[String]'.
+                        assert (exists first = caseTypes[0]);
+                        assert (exists second = caseTypes[1]);
+                        return abbreviateEmpty(first)
+                            && abbreviateCallableArg(second);
+                    }
+                    return false;
+                }
+                else {
+                    return abbreviateEmpty(type)
+                        || abbreviateSequence(type)
+                        || abbreviateSequential(type)
+                        || abbreviateTuple(type);
+                }
+            }
+
+            function isPrimitiveAbbreviatedType(Type type)
+                =>  !type.isIntersection
+                    && (!type.isUnion || abbreviateOptional(type))
+                    && !abbreviateEntry(type);
+
+            void printTupleElementTypeNames(StringBuilder sb, variable Type type) {
+                Boolean defaulted;
+
+                if (type.isUnion) {
+                    value cases = type.caseTypes.sequence();
+                    if (cases.size == 2) {
+                        assert (exists first = cases[0]);
+                        assert (exists second = cases[1]);
+                        if (first.isEmpty) {
+                            type = second;
+                        }
+                        else if (second.isEmpty) {
+                            type = first;
+                        }
+                        defaulted = true;
+                    }
+                    else {
+                        defaulted = false;
+                    }
+                }
+                else {
+                    defaulted = false;
+                }
+
+                if (type.isEmpty) {
+                    if (defaulted) {
+                        sb.appendCharacter('=');
+                    }
+                    return;
+                }
+                else if (type.isSequential) {
+                    assert (exists elementType = unit.getSequentialElementType(type));
+                    printWithAnglesIf {
+                        !isPrimitiveAbbreviatedType(elementType);
+                        elementType;
+                    };
+                    sb.appendCharacter('*');
+                }
+                else if (type.isSequence) {
+                    assert (exists elementType = unit.getSequentialElementType(type));
+                    printWithAnglesIf {
+                        !isPrimitiveAbbreviatedType(elementType);
+                        elementType;
+                    };
+                    sb.appendCharacter('+');
+                }
+                else if (type.isTuple) {
+                    value typeArguments = type.typeArgumentList.sequence();
+                    assert (exists first = typeArguments[1]);
+                    assert (exists rest = typeArguments[2]);
+
+                    printType(sb, first);
+                    if (rest.isEmpty) {
+                        if (defaulted) {
+                            sb.appendCharacter('=');
+                        }
+                    }
+                    else {
+                        if (defaulted) {
+                            sb.appendCharacter('=');
+                        }
+                        sb.append(", ");
+                    }
+                    printTupleElementTypeNames(sb, rest);
+                }
+                else {
+                    throw AssertionError(
+                        "Expected an Empty, Sequential, Sequence, or Tuple type");
+                }
+            }
+
+            if (printAbbreviated && !type.isTypeAlias) {
+                if (abbreviateOptional(type)) {
+                    value nonOptional = type.withNullEliminated;
+                    printWithAnglesIf {
+                        needsAngles = !isPrimitiveAbbreviatedType(nonOptional);
+                        nonOptional;
+                    };
+                    sb.append("?");
+                    return;
+                }
+                if (abbreviateEmpty(type)) {
+                    sb.append("[]");
+                    return;
+                }
+                if (abbreviateHomogeneousTuple(type)) {
+                    assert (exists elementType
+                        =   type.unit.getSequentialElementType(type));
+
+                    assert (exists length
+                        =   type.unit.getHomogeneousTupleLength(type));
+
+                    printWithAnglesIf {
+                        needsAngles = !isPrimitiveAbbreviatedType(elementType);
+                        elementType;
+                    };
+                    sb.append("[");
+                    sb.append(length.string);
+                    sb.append("]");
+                    return;
+                }
+                if (abbreviateSequential(type)) {
+                    assert (exists iteratedType = type.unit.getIteratedType(type));
+                    printWithAnglesIf {
+                        needsAngles = !isPrimitiveAbbreviatedType(iteratedType);
+                        iteratedType;
+                    };
+                    sb.append("[]");
+                    return;
+                }
+                if (abbreviateSequence(type)) {
+                    assert (exists iteratedType = type.unit.getIteratedType(type));
+                    sb.append("[");
+                    printWithAnglesIf {
+                        needsAngles
+                            = !(type.isUnion
+                                || type.isIntersection
+                                || isPrimitiveAbbreviatedType(iteratedType));
+                        iteratedType;
+                    };
+                    sb.append("+]");
+                    return;
+                }
+                if (abbreviateIterable(type)) {
+                    value typeArguments = type.typeArgumentList.sequence();
+                    assert (exists iteratedType = typeArguments[0]);
+                    assert (exists absentType = typeArguments[1]);
+                    sb.append("{");
+                    printWithAnglesIf {
+                        needsAngles
+                            = !(type.isUnion
+                                || type.isIntersection
+                                || isPrimitiveAbbreviatedType(iteratedType));
+                        iteratedType;
+                    };
+                    sb.append(if (absentType.isNothing) then "+" else "*");
+                    sb.append("}");
+                    return;
+                }
+                if (abbreviateEntry(type)) {
+                    assert (exists [keyType, itemType]
+                        =   type.unit.getEntryKeyItemTypes(type));
+                    printType(sb, keyType);
+                    sb.append("->");
+                    printType(sb, itemType);
+                    return;
+                }
+                if (abbreviateCallable(type)) {
+                    value typeArguments = type.typeArgumentList.sequence();
+                    assert (exists returnType = typeArguments[0]);
+                    assert (exists parameterTypes = typeArguments[1]);
+
+                    printWithAnglesIf {
+                        needsAngles
+                            =   !(isPrimitiveAbbreviatedType(returnType));
+                        returnType;
+                    };
+                    sb.append("(");
+                    if (abbreviateCallableArg(parameterTypes)) {
+                        printTupleElementTypeNames(sb, parameterTypes);
+                    }
+                    else {
+                        sb.append("*");
+                        printWithAnglesIf {
+                            needsAngles = !(isPrimitiveAbbreviatedType(parameterTypes));
+                            parameterTypes;
+                        };
+                    }
+                    sb.append(")");
+                    return;
+                }
+                if (abbreviateTuple(type)) {
+                    sb.append("[");
+                    printTupleElementTypeNames(sb, type);
+                    sb.append("]");
+                    return;
+                }
+            }
 
             if (type.isUnion) {
                 variable value first = true;
@@ -1463,14 +1792,10 @@ class Type() extends Reference() {
                     else {
                         sb.append("|");
                     }
-                    value needsAngles = printAbbreviated && caseType.isEntry;
-                    if (needsAngles) {
-                        sb.append("<");
-                    }
-                    printType(sb, caseType);
-                    if (needsAngles) {
-                        sb.append(">");
-                    }
+                    printWithAnglesIf {
+                        needsAngles = printAbbreviated && caseType.isEntry;
+                        caseType;
+                    };
                 }
                 return;
             }
@@ -1484,17 +1809,13 @@ class Type() extends Reference() {
                         sb.append("&");
                     }
 
-                    value needsAngles
-                        =   satisfiedType.isUnion
-                                || printAbbreviated && satisfiedType.isEntry;
-
-                    if (needsAngles) {
-                        sb.append("<");
-                    }
-                    printType(sb, satisfiedType);
-                    if (needsAngles) {
-                        sb.append(">");
-                    }
+                    printWithAnglesIf {
+                        needsAngles
+                            =   satisfiedType.isUnion
+                                    || printAbbreviated
+                                       && satisfiedType.isEntry;
+                        satisfiedType;
+                    };
                 }
                 return;
             }

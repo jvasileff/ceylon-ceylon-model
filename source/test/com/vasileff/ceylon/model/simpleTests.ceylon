@@ -249,7 +249,7 @@ Module loadLanguageModule() {
                 container = ceylonLanguagePackage;
                 name = "Tuple";
                 extendedTypeLG = parseTypeLG("Object");
-                satisfiedTypesLG = [parseTypeLG("[Element*]")];
+                satisfiedTypesLG = [parseTypeLG("[Element+]")];
             };
 
     ceylonLanguagePackage.defaultUnit.addDeclaration(tupleDeclaration);

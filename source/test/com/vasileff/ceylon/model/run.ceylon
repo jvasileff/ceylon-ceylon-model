@@ -34,7 +34,8 @@ void runAllTests() {
         subtypesSimpleEntries,
         substitutionsSimple,
         memberGenericTypesJson,
-        stringParameterType
+        stringParameterType,
+        typePrinterTests
     };
     print("Tests complete.");
 }

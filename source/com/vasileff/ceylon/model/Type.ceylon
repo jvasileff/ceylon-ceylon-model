@@ -393,7 +393,7 @@ class Type() extends Reference() {
             return caseTypes.every((ct) => ct.isSubtypeOf(that));
         }
         else if (that.isUnion) {
-            return that.caseTypes.every((ct) => isSubtypeOf(ct));
+            return that.caseTypes.any((ct) => isSubtypeOf(ct));
         }
         else if (isIntersection) {
             if (is ClassOrInterface | TypeParameter thatDeclaration

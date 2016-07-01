@@ -364,8 +364,62 @@ class Type() extends Reference() {
         =>  nothing;
 
     shared
-    Boolean isTypeArgumentListExactly(Type that)
-        =>  nothing;
+    Boolean isTypeArgumentListExactly(Type that) {
+        for (typeParameter in declaration.typeParameters) {
+            value thisArgument = typeArguments[typeParameter];
+            value thatArgument = that.typeArguments[typeParameter];
+
+            if (!exists thisArgument) {
+                return false;
+            }
+
+            if (!exists thatArgument) {
+                return false;
+            }
+
+            value thisVariance = variance(typeParameter);
+            value thatVariance = that.variance(typeParameter);
+
+            if (thisVariance.isContravariant && thatVariance.isCovariant) {
+                //Inv<in Nothing> == Inv<out Anything>
+                if (!thisArgument.isNothing
+                        || !intersectionOfSupertypes(typeParameter, unit)
+                                .isSubtypeOf(thatArgument)) {
+                    return false;
+                }
+            }
+            else if (thisVariance.isCovariant && thatVariance.isContravariant) {
+                //Inv<out Anything> == Inv<in Nothing>
+                if (!thatArgument.isNothing
+                        || !intersectionOfSupertypes(typeParameter, unit)
+                            .isSubtypeOf(thisArgument)) {
+                    return false;
+                }
+            }
+            else if (thisVariance.isContravariant && thatVariance.isInvariant) {
+                //Inv<in Anything> == Inv<Anything>
+                if (!thisArgument.isAnything
+                        || !thatArgument.isAnything) {
+                    return false;
+                }
+            }
+            else if (thisVariance.isCovariant && thatVariance.isInvariant
+                    || thisVariance.isInvariant && thatVariance.isContravariant) {
+                //Inv<out nothing> == Inv<Nothing>
+                if (!thisArgument.isNothing
+                        ||  !thatArgument.isNothing) {
+                    return false;
+                }
+            }
+            else {
+                // same variance
+                if (!thisArgument.isExactly(thatArgument)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 
     shared
     Boolean isSupertypeOf(Type that)

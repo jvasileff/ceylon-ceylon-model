@@ -105,29 +105,25 @@ object jsonModelUtil {
         }
         else { // is JsonObject
             value typeParametersToJson
-                =   json.map((nameAndType) {
-                        value name -> jsonType
-                            =   nameAndType;
-
+                =   json.map((name -> jsonType) {
                         value typeParameter
                             =   declaration.findDeclaration(name.split('.'.equals));
 
                         if (!is TypeParameter typeParameter) {
-                            throw Exception("cannot find type parameter for name ``name``");
+                            throw Exception(
+                                "cannot find type parameter for name ``name``");
                         }
                         return typeParameter -> jsonType;
                     });
 
             value typeArgs
-                =   map(typeParametersToJson.map((entry) {
-                        value typeParameter -> jsonType = entry;
+                =   map(typeParametersToJson.map((typeParameter -> jsonType) {
                         assert (is JsonObject jsonType);
                         return typeParameter -> parseType(scope, jsonType);
                     }));
 
             value overrides
-                =   map(typeParametersToJson.map((entry) {
-                        value typeParameter -> jsonTypeArgument = entry;
+                =   map(typeParametersToJson.map((typeParameter -> jsonTypeArgument) {
                         assert (is JsonObject jsonTypeArgument);
                         return useSiteOverrideEntry(typeParameter, jsonTypeArgument);
                     }).coalesced);

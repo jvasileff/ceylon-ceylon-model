@@ -133,8 +133,11 @@ JsonObject loadJson(String name) {
     return jsonObject;
 }
 
-JsonObject _modCeylonLanguageJson => loadJson("ceylon.language-1.2.2-DP2-SNAPSHOT-dartmodel.json");
-JsonObject _modCeylonInteropDartJson => loadJson("ceylon.interop.dart-1.2.2-dartmodel.json");
+JsonObject _modCeylonLanguageJson
+    =>  loadJson("ceylon.language-1.3.1-DP5-SNAPSHOT-dartmodel.json");
+
+JsonObject _modCeylonInteropDartJson
+    =>  loadJson("ceylon.interop.dart-1.3.1-SNAPSHOT-dartmodel.json");
 
 variable Module? _modCeylonLanguage = null;
 variable Module? _modCeylonInteropDart = null;

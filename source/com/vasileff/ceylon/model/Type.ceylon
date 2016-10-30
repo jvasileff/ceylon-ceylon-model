@@ -144,16 +144,20 @@ class Type() extends Reference() {
             }
 
             if (is UnionType declaration) {
-                return unionDeduped(caseTypes.map(Type.resolvedAliases), unit);
+                // verbose ref to Type.resolvedAliases due to ceylon/ceylon#6565
+                return unionDeduped(caseTypes.map((t) => t.resolvedAliases), unit);
             }
 
             if (is IntersectionType declaration) {
                 return intersectionDedupedCanonical(
-                    satisfiedTypes.map(Type.resolvedAliases), unit);
+                    satisfiedTypes.map((t) => t.resolvedAliases), unit);
             }
 
-            value aliasedQualifyingType = qualifyingType?.resolvedAliases;
-            value aliasedTypeArguments = typeArgumentList.collect(Type.resolvedAliases);
+            value aliasedQualifyingType
+                =   qualifyingType?.resolvedAliases;
+
+            value aliasedTypeArguments
+                =   typeArgumentList.collect((t) => t.resolvedAliases);
 
             if (is Alias declaration) {
                 "extendedType is not optional for [[Alias]]es"
@@ -1256,9 +1260,10 @@ class Type() extends Reference() {
     shared
     Boolean involvesTypeParameters
         =>  isTypeParameter
-                || isUnion && caseTypes.any(Type.involvesTypeParameters)
-                || isIntersection && satisfiedTypes.any(Type.involvesTypeParameters)
-                || typeArgumentList.any(Type.involvesTypeParameters)
+                // verbose ref to Type.involvesTypeParameters due to ceylon/ceylon#6565
+                || isUnion && caseTypes.any((t) => t.involvesTypeParameters)
+                || isIntersection && satisfiedTypes.any((t) => t.involvesTypeParameters)
+                || typeArgumentList.any((t) => t.involvesTypeParameters)
                 || (qualifyingType?.involvesTypeParameters else false);
 
     shared
@@ -1296,11 +1301,12 @@ class Type() extends Reference() {
     shared
     String qualifiedNameWithTypeArguments {
         if (isUnion) {
-            return "|".join(caseTypes.map(Type.qualifiedNameWithTypeArguments));
+            // verbose ref to Type.qualifiedNameWithTypeArguments ceylon/ceylon#6565
+            return "|".join(caseTypes.map((t) => t.qualifiedNameWithTypeArguments));
         }
 
         if (isIntersection) {
-            return "&".join(satisfiedTypes.map(Type.qualifiedNameWithTypeArguments));
+            return "&".join(satisfiedTypes.map((t) => t.qualifiedNameWithTypeArguments));
         }
 
         if (isTypeConstructor) {
@@ -1329,7 +1335,9 @@ class Type() extends Reference() {
         =>  if (declaration.inherits(unit.nullDeclaration)) then
                 unit.nothingDeclaration.type
             else if (isUnion) then
-                unionDeduped(caseTypes.map(Type.withNullEliminated), unit)
+                // workaround ceylon issue 6565
+                //unionDeduped(caseTypes.map(Type.withNullEliminated), unit)
+                unionDeduped(caseTypes.map((t) => t.withNullEliminated), unit)
             else this;
 
     shared

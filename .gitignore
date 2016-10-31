@@ -1,4 +1,5 @@
 /.ceylon/config.old
 /.exploded/
+/.vscode/
 /classes/
 /modules/

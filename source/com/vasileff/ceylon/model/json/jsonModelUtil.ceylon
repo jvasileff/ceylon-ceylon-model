@@ -12,7 +12,9 @@ import com.vasileff.ceylon.model {
     invariant,
     InterfaceDefinition,
     Class,
-    Interface
+    Interface,
+    unionDeduped,
+    intersectionDedupedCanonical
 }
 import com.vasileff.ceylon.model.internal {
     assertedTypeDeclaration
@@ -144,9 +146,33 @@ object jsonModelUtil {
         =>  getStringOrNull(json, keyModuleVersion);
 
     shared
-    Type parseType(Scope scope, JsonObject json)
-            // TODO look at JsonPackage.getTypeFromJson. It has a lot more code?
-        =>  if (getString(json, keyName) == "$U")
+    Type parseType(Scope scope, JsonObject json) {
+        if (exists compositeType = getStringOrNull(json, keyComposite)) {
+            switch (compositeType)
+            case ("u") {
+                return unionDeduped {
+                    getArrayOrEmpty(json, keyTypes).collect((j) {
+                        assert (is JsonObject j);
+                        return parseType(scope, j);
+                    });
+                    scope.unit;
+                };
+            }
+            case ("i") {
+                return intersectionDedupedCanonical {
+                    getArrayOrEmpty(json, keyTypes).collect((j) {
+                        assert (is JsonObject j);
+                        return parseType(scope, j);
+                    });
+                    scope.unit;
+                };
+            }
+            else {
+                throw AssertionError("Unexpected composite type ``compositeType``");
+            }
+        }
+
+        return if (getString(json, keyName) == "$U")
             then scope.unit.unknownType
             else let (declaration
                     =   assertedTypeDeclaration {
@@ -160,6 +186,7 @@ object jsonModelUtil {
                             else getObjectOrArrayOrNull(json, keyTypeParams);
                         })
                 declaration.type.substitute(typeArguments, overrides);
+    }
 
     Variance parseDsVariance(JsonObject json) {
         if (is String dv = json[keyDsVariance]) {
@@ -240,8 +267,8 @@ object jsonModelUtil {
             declaration.addMember(parseTypeParameter {
                 scope = declaration;
                 json = tpJson;
-                selfTypeDeclaration =
-                        (selfType?.equals(name) else false) then declaration;
+                selfTypeDeclaration
+                    =   (selfType?.equals(name) else false) then declaration;
             });
         }
 
@@ -300,8 +327,8 @@ object jsonModelUtil {
             declaration.addMember(parseTypeParameter {
                 scope = declaration;
                 json = tpJson;
-                selfTypeDeclaration =
-                        (selfType?.equals(name) else false) then declaration;
+                selfTypeDeclaration
+                    =   (selfType?.equals(name) else false) then declaration;
             });
         }
 

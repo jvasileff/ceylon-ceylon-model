@@ -178,13 +178,14 @@ object jsonModelUtil {
     }
 
     shared
-    TypeParameter parseTypeParameter(Scope scope, JsonObject json)
+    TypeParameter parseTypeParameter
+            (Scope scope, JsonObject json, TypeDeclaration? selfTypeDeclaration)
         =>  TypeParameter {
                 container = scope;
                 name = getString(json, keyName);
                 variance = parseDsVariance(json);
                 isTypeConstructor = false; // TODO
-
+                selfTypeDeclaration = selfTypeDeclaration;
                 defaultTypeArgumentLG
                     =   if (exists da = getObjectOrNull(json, keyDefault))
                         then typeFromJsonLG(da)
@@ -230,9 +231,18 @@ object jsonModelUtil {
                     isAnnotation = packedAnnotations.get(annotationBit);
                 };
 
+        value selfType
+            =   getStringOrNull(json, keySelfType);
+
         for (tpJson in getArrayOrEmpty(json, keyTypeParams)) {
             assert (is JsonObject tpJson);
-            declaration.addMember(parseTypeParameter(declaration, tpJson));
+            value name = getString(json, keyName);
+            declaration.addMember(parseTypeParameter {
+                scope = declaration;
+                json = tpJson;
+                selfTypeDeclaration =
+                        (selfType?.equals(name) else false) then declaration;
+            });
         }
 
         for (classJson in getObjectOrEmpty(json, keyClasses).items) {
@@ -281,9 +291,18 @@ object jsonModelUtil {
                     isAbstract = packedAnnotations.get(abstractBit);
                 };
 
+        value selfType
+            =   getStringOrNull(json, keySelfType);
+
         for (tpJson in getArrayOrEmpty(json, keyTypeParams)) {
             assert (is JsonObject tpJson);
-            declaration.addMember(parseTypeParameter(declaration, tpJson));
+            value name = getString(json, keyName);
+            declaration.addMember(parseTypeParameter {
+                scope = declaration;
+                json = tpJson;
+                selfTypeDeclaration =
+                        (selfType?.equals(name) else false) then declaration;
+            });
         }
 
         for (classJson in getObjectOrEmpty(json, keyClasses).items) {

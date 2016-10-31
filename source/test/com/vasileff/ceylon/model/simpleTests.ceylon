@@ -583,3 +583,34 @@ void stringParameterType() {
     assertTrue(parameterType.isSubtypeOf(iterableObject));
     assertFalse(parameterType.isSupertypeOf(iterableObject));
 }
+
+shared test
+void selfType() {
+    value mod = Module(["com", "example"], "0.0.0");
+    mod.moduleImports.add(ModuleImport(loadLanguageModule(), true));
+
+    value pkg = Package(["com", "example"], mod);
+    mod.packages.add(pkg);
+
+    value unit = pkg.defaultUnit;
+
+    value x = InterfaceDefinition {
+        container = pkg;
+        name = "X";
+        caseTypesLG = [parseTypeLG("Other")];
+    };
+    unit.addDeclaration(x);
+    x.addMember {
+        TypeParameter {
+            container = x;
+            name = "Other";
+            selfTypeDeclaration = x;
+            satisfiedTypesLG = [ 
+                parseTypeLG("X<Other>")
+            ];
+        };
+    };
+
+    assertEquals(x.type.string, "X<Other> (type)");
+    assertTrue(x.caseTypes.any((ct) => ct.string == "Other (type)"));
+}

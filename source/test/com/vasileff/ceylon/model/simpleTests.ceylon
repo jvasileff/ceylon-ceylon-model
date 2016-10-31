@@ -27,7 +27,9 @@ import com.vasileff.ceylon.model.json {
     keyTypeParams,
     keyModule,
     keyMetatype,
+    keyTypeArgs,
     metatypeTypeParameter,
+    metatypeInterface,
     typeFromJson
 }
 import com.vasileff.ceylon.model.parser {
@@ -613,4 +615,49 @@ void selfType() {
 
     assertEquals(x.type.string, "X<Other> (type)");
     assertTrue(x.caseTypes.any((ct) => ct.string == "Other (type)"));
+}
+
+shared test
+void jsonTypeParameters() {
+
+    value mod = Module(["com", "example"], "0.0.0");
+    mod.moduleImports.add(ModuleImport(loadLanguageModule(), true));
+
+    value pkg = Package(["com", "example"], mod);
+    mod.packages.add(pkg);
+
+    value unit = pkg.defaultUnit;
+
+    "JSON for `interface I<Element> given Element satisfies Object {}`"
+    value genericInterface
+        =   map {
+                keyMetatype -> metatypeInterface,
+                keyName -> "I",
+                keyPackage -> ".",
+                keyTypeParams -> [
+                    map {
+                        keyName -> "Element"
+                    }
+                ]
+            };
+
+    value i = jsonModelUtil.parseInterface(pkg, genericInterface);
+    unit.addDeclaration(i);
+
+    value jsonType
+        =   map {
+                keyName -> "I",
+                keyPackage -> ".",
+                keyTypeArgs -> map {
+                    // type param must be partially qualified
+                    "I.Element" -> map {
+                        keyModule -> "$",
+                        keyPackage -> "$",
+                        keyName -> "String"}
+                }
+            };
+
+    value t = jsonModelUtil.parseType(pkg, jsonType);
+
+    assertEquals (t.string, "I<String> (type)");
 }

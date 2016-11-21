@@ -1,15 +1,15 @@
 shared
 class Function(
-        container, name, typeLG, parameterLists = [ParameterList.empty],
-        qualifier = null, declaredVoid = false, isShared = false,
-        isFormal = false, isActual = false, isDefault = false,
-        isAnnotation = false, isDeprecated = false, isStatic = false,
-        isAnonymous = false, isNamed = true, typeParameters = [],
+        container, name, typeLG, qualifier = null, declaredVoid = false, isShared = false,
+        isFormal = false, isActual = false, isDefault = false, isAnnotation = false,
+        isDeprecated = false, isStatic = false, isAnonymous = false, isNamed = true,
         unit = container.pkg.defaultUnit)
         extends FunctionOrValue()
         satisfies Functional & Generic {
 
     Type | Type(Scope) typeLG;
+
+    variable [ParameterList+] _parameterLists = [ParameterList.empty];
 
     variable Type? typeMemo = null;
 
@@ -30,8 +30,34 @@ class Function(
     shared actual Scope container;
     shared actual Integer? qualifier;
     shared actual Unit unit;
-    shared actual {TypeParameter*} typeParameters;
-    shared actual [ParameterList+] parameterLists;
+
+    shared actual default
+    {TypeParameter*} typeParameters
+        =>  { for (member in members.items)
+                if (is TypeParameter member)
+                  member };
+
+    shared actual
+    [ParameterList+] parameterLists
+        =>  _parameterLists;
+
+    shared
+    ParameterList parameterList => _parameterLists.first;
+
+    "Set the parameter list. Models (FunctionOrValues) for all parameters must already
+     be members of this element."
+    throws(`class AssertionError`, "If the underlying FunctionOrValue of one of the
+                                    parameters is not a member of this element.")
+    assign parameterLists {
+        for (parameterList in parameterLists) {
+            for (member in parameterList.parameters.map(Parameter.model)) {
+                "A parameter's function or value must be a member of the parameter
+                 list's container."
+                assert (members.contains(member.name -> member));
+            }
+        }
+        _parameterLists = parameterLists;
+    }
 
     shared actual Boolean isActual;
     shared actual Boolean isAnnotation;

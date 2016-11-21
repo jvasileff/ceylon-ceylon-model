@@ -18,6 +18,8 @@ import com.vasileff.ceylon.model {
     ModuleImport,
     Value,
     Parameter,
+    Function,
+    TypedReference,
     contravariant
 }
 import com.vasileff.ceylon.model.json {
@@ -300,6 +302,41 @@ Module loadLanguageModule() {
             selfTypeDeclaration = null;
         }
     };
+
+    // ceylon.language::Identity
+    value identityDeclaration
+        =   Function {
+                container = ceylonLanguagePackage;
+                name = "identity";
+                typeLG = parseTypeLG("Value");
+            };
+
+    ceylonLanguagePackage.defaultUnit.addDeclaration(identityDeclaration);
+
+    value valueTP
+        =   TypeParameter {
+                container = identityDeclaration;
+                name = "Value";
+            };
+
+    value identityParam
+        =   Value {
+                container = identityDeclaration;
+                name = "argument";
+                typeLG = valueTP.type;
+            };
+
+    identityDeclaration.addMembers {
+        valueTP,
+        identityParam
+    };
+
+    identityDeclaration.parameterLists
+        =   [ParameterList {
+                [Parameter {
+                    identityParam;
+                }];
+            }];
 
     return ceylonLanguageModule;
 }
@@ -660,4 +697,37 @@ void jsonTypeParameters() {
     value t = jsonModelUtil.parseType(pkg, jsonType);
 
     assertEquals (t.string, "I<String> (type)");
+}
+
+shared test
+void identityFunction() {
+    value languageModule = loadLanguageModule();
+    value unit = languageModule.unit;
+
+    assert (is Function identityFunction
+        =   unit.ceylonLanguagePackage.getMember("identity"));
+
+    assert (exists valueTP
+        =   identityFunction.typeParameters.first);
+
+    value identityStringTypedReference
+        =   TypedReference {
+                identityFunction;
+                map { valueTP -> unit.stringDeclaration.type };
+                null;
+            };
+    
+    assertTrue {
+        identityStringTypedReference.type.isExactly {
+            unit.stringDeclaration.type;
+        };
+    };
+
+    // add tests for fullType and parameter types of identityStringTypedReference
+    // when possible.
+
+    assertEquals {
+        identityFunction.string;
+        "function identity<Value>(Value argument) => Value";
+    };
 }

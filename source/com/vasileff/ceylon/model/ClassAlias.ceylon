@@ -33,6 +33,8 @@ class ClassAlias(
     shared actual Boolean isNamed => true;
     shared actual Boolean isStatic => false;
 
+    shared actual Boolean isAlias => true;
+
     shared actual
     Boolean inherits(ClassOrInterface | TypeParameter that)
         =>  extendedType.declaration.inherits(that);

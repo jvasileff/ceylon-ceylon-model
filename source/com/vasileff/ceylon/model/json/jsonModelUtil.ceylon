@@ -8,16 +8,21 @@ import com.vasileff.ceylon.model {
     covariant,
     contravariant,
     ClassDefinition,
+    Function,
     Package,
     invariant,
     InterfaceDefinition,
     Class,
     Interface,
+    Value,
+    Setter,
+    TypeAlias,
     unionDeduped,
     intersectionDedupedCanonical
 }
 import com.vasileff.ceylon.model.internal {
-    assertedTypeDeclaration
+    assertedTypeDeclaration,
+    eq
 }
 
 shared
@@ -204,6 +209,49 @@ object jsonModelUtil {
         return invariant;
     }
 
+    {Declaration*} parseMembers(Scope scope, JsonObject json, String? selfTypeName)
+        =>  expand {
+                // TypeParameters
+                parseTypeParameters {
+                    scope;
+                    getArrayOrEmpty(json, keyTypeParams);
+                    selfTypeName;
+                },
+                // Classes
+                getObjectOrEmpty(json, keyClasses).items.map((classJson) {
+                    assert (is JsonObject classJson);
+                    return parseClass(scope, classJson);                
+                }),
+                // Interfaces
+                getObjectOrEmpty(json, keyInterfaces).items.map((interfaceJson) {
+                    assert (is JsonObject interfaceJson);
+                    return parseInterface(scope, interfaceJson);                
+                }),
+                // Functions
+                getObjectOrEmpty(json, keyMethods).items.map((methodJson) {
+                    assert (is JsonObject methodJson);
+                    return parseFunction(scope, methodJson);
+                }),
+                // Values and Setters
+                getObjectOrEmpty(json, keyAttributes).items
+                    .map((valueJson) {
+                        assert (is JsonObject valueJson);
+                        return valueJson;
+                    })
+                    .filter((valueJson) => !eq(metatypeAlias, valueJson[keyMetatype]))
+                    .flatMap((valueJson) => parseValue(scope, valueJson)),
+                // TypeAlias, which happen to be keyAttributes!
+                getObjectOrEmpty(json, keyAttributes).items
+                    .map((valueJson) {
+                        assert (is JsonObject valueJson);
+                        return valueJson;
+                    })
+                    .filter((valueJson) => eq(metatypeAlias, valueJson[keyMetatype]))
+                    .map((valueJson) => parseTypeAlias(scope, valueJson))
+                // TODO objects
+
+            };
+
     shared
     TypeParameter parseTypeParameter
             (Scope scope, JsonObject json, TypeDeclaration? selfTypeDeclaration)
@@ -231,9 +279,147 @@ object jsonModelUtil {
                         });
             };
 
+    {TypeParameter*} parseTypeParameters(
+            Scope scope,
+            JsonArray typeParametersJson,
+            String? selfTypeName) {
+
+        "The TypeDeclaration to use if this type parameter is a self type. Scope will not
+         be a TypeDeclaration for Functions."
+        value typeDeclaration
+            =   if (is TypeDeclaration scope)
+                then scope else null;
+
+        return typeParametersJson.map((tpJson) {
+            assert (is JsonObject tpJson);
+            value name = getString(tpJson, keyName);
+            return parseTypeParameter {
+                scope = scope;
+                json = tpJson;
+                selfTypeDeclaration
+                    =   if (eq(selfTypeName, name))
+                        then typeDeclaration
+                        else null;
+            };
+        });
+    }
+
+    shared
+    TypeAlias parseTypeAlias(Scope scope, JsonObject json) {
+        value packedAnnotations
+            =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
+
+        value declaration
+            =   TypeAlias {
+                    container = scope;
+                    name = getString(json, keyName);
+                    extendedTypeLG = typeFromJsonLG(json);
+                    isShared = packedAnnotations.get(sharedBit);
+                };
+
+        // For type parameters
+        declaration.addMembers {
+            parseMembers {
+                scope = declaration;
+                json = json;
+                selfTypeName = null;
+            };
+        };
+
+        return declaration;
+    }
+
+    shared
+    Function parseFunction(Scope scope, JsonObject json) {
+        value packedAnnotations
+            =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
+
+        value declaration
+            =   Function {
+                    container = scope;
+                    name = getString(json, keyName);
+                    typeLG = typeFromJsonLG(getObject(json, keyType));
+                    isShared = packedAnnotations.get(sharedBit);
+                    isActual = packedAnnotations.get(actualBit);
+                    isFormal = packedAnnotations.get(formalBit);
+                    isDefault = packedAnnotations.get(defaultBit);
+                    isAnnotation = packedAnnotations.get(annotationBit);
+                };
+
+        declaration.addMembers {
+            parseMembers {
+                scope = declaration;
+                json = json;
+                selfTypeName = null;
+            };
+        };
+
+        // TODO Value Parameters & ParameterLists      
+        // NOTE: json schema is inefficient with value parameters; no need to
+        //       repeat type info!
+
+        return declaration;
+    }
+
+    shared
+    [Value] | [Value, Setter] parseValue(Scope scope, JsonObject json) {
+        // TODO return [Value]|[Value, Setter]
+        value packedAnnotations
+            =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
+
+        value declaration
+            =   Value {
+                    container = scope;
+                    name = getString(json, keyName);
+                    typeLG = typeFromJsonLG(getObject(json, keyType));
+                    isShared = packedAnnotations.get(sharedBit);
+                    isActual = packedAnnotations.get(actualBit);
+                    isFormal = packedAnnotations.get(formalBit);
+                    isDefault = packedAnnotations.get(defaultBit);
+                    // isDeprecated
+                    // isStatic
+                    // TODO add variable flag
+                    // TODO add transient flag?
+                };
+
+        declaration.addMembers {
+            parseMembers {
+                scope = declaration;
+                json = json;
+                selfTypeName = null;
+            };
+        };
+
+        if (exists setterJson = json[keySetter]) {
+            assert (is JsonObject setterJson);
+
+            value setter
+                =   Setter {
+                        declaration;
+                        // TODO are these supposed to be independent of the getter? If
+                        //      not, remove them from Setter's parameter list.
+                        declaration.isActual;
+                        declaration.isDeprecated;
+                    };
+
+            setter.addMembers {
+                parseMembers {
+                    scope = setter;
+                    json = setterJson;
+                    selfTypeName = null;
+                };
+            };
+
+            return [declaration, setter];
+        }
+        else {
+            return [declaration];
+        }
+    }
+
     shared
     Interface parseInterface(Scope scope, JsonObject json) {
-
+        // TODO InterfaceAliases
         value packedAnnotations
             =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
 
@@ -258,36 +444,20 @@ object jsonModelUtil {
                     isAnnotation = packedAnnotations.get(annotationBit);
                 };
 
-        value selfType
-            =   getStringOrNull(json, keySelfType);
-
-        for (tpJson in getArrayOrEmpty(json, keyTypeParams)) {
-            assert (is JsonObject tpJson);
-            value name = getString(json, keyName);
-            declaration.addMember(parseTypeParameter {
+        declaration.addMembers {
+            parseMembers {
                 scope = declaration;
-                json = tpJson;
-                selfTypeDeclaration
-                    =   (selfType?.equals(name) else false) then declaration;
-            });
-        }
-
-        for (classJson in getObjectOrEmpty(json, keyClasses).items) {
-            assert (is JsonObject classJson);
-            declaration.addMember(parseClass(declaration, classJson));
-        }
-
-        for (interfaceJson in getObjectOrEmpty(json, keyClasses).items) {
-            assert (is JsonObject interfaceJson);
-            declaration.addMember(parseInterface(declaration, interfaceJson));
-        }
+                json = json;
+                selfTypeName = getStringOrNull(json, keySelfType);
+            };
+        };
 
         return declaration;
     }
 
     shared
     Class parseClass(Scope scope, JsonObject json) {
-
+        // TODO ClassAliases
         value packedAnnotations
             =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
 
@@ -318,29 +488,15 @@ object jsonModelUtil {
                     isAbstract = packedAnnotations.get(abstractBit);
                 };
 
-        value selfType
-            =   getStringOrNull(json, keySelfType);
-
-        for (tpJson in getArrayOrEmpty(json, keyTypeParams)) {
-            assert (is JsonObject tpJson);
-            value name = getString(json, keyName);
-            declaration.addMember(parseTypeParameter {
+        declaration.addMembers {
+            parseMembers {
                 scope = declaration;
-                json = tpJson;
-                selfTypeDeclaration
-                    =   (selfType?.equals(name) else false) then declaration;
-            });
-        }
+                json = json;
+                selfTypeName = getStringOrNull(json, keySelfType);
+            };
+        };
 
-        for (classJson in getObjectOrEmpty(json, keyClasses).items) {
-            assert (is JsonObject classJson);
-            declaration.addMember(parseClass(declaration, classJson));
-        }
-
-        for (interfaceJson in getObjectOrEmpty(json, keyClasses).items) {
-            assert (is JsonObject interfaceJson);
-            declaration.addMember(parseInterface(declaration, interfaceJson));
-        }
+        // TODO value parameters
 
         return declaration;
     }
@@ -354,10 +510,12 @@ object jsonModelUtil {
         else if (metaType == metatypeInterface) {
             pkg.defaultUnit.addDeclaration(parseInterface(pkg, item));
         }
+        else if (metaType == metatypeMethod) {
+            pkg.defaultUnit.addDeclaration(parseFunction(pkg, item));
+        }
 
         // attribute
         // getter
-        // method
         // object
         // alias
     }

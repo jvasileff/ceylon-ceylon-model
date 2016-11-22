@@ -25,6 +25,7 @@ shared String keyUsVariance    = "uv"; //use-site variance
 shared String keyCases         = "of";
 shared String keyConstructors  = "$cn";
 shared String keyFlags         = "$ff";
+shared String keySetter        = "$set";
 
 shared String keyDefault       = "def";
 shared String keyNamed         = "nam";

@@ -3,6 +3,8 @@ class InterfaceAlias(extendedType) extends Interface() {
     shared actual
     Type extendedType;
 
+    shared actual Boolean isAlias => true;
+
     shared actual
     Boolean inherits(ClassOrInterface | TypeParameter that)
         =>  extendedType.declaration.inherits(that);

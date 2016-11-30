@@ -212,11 +212,12 @@ object jsonModelUtil {
     {Declaration*} parseMembers(Scope scope, JsonObject json, String? selfTypeName)
         =>  expand {
                 // TypeParameters
-                parseTypeParameters {
+                if (is Declaration scope)
+                then parseTypeParameters {
                     scope;
                     getArrayOrEmpty(json, keyTypeParams);
                     selfTypeName;
-                },
+                } else [],
                 // Classes
                 getObjectOrEmpty(json, keyClasses).items.map((classJson) {
                     assert (is JsonObject classJson);
@@ -254,7 +255,7 @@ object jsonModelUtil {
 
     shared
     TypeParameter parseTypeParameter
-            (Scope scope, JsonObject json, TypeDeclaration? selfTypeDeclaration)
+            (Declaration scope, JsonObject json, TypeDeclaration? selfTypeDeclaration)
         =>  TypeParameter {
                 container = scope;
                 name = getString(json, keyName);
@@ -280,7 +281,7 @@ object jsonModelUtil {
             };
 
     {TypeParameter*} parseTypeParameters(
-            Scope scope,
+            Declaration scope,
             JsonArray typeParametersJson,
             String? selfTypeName) {
 

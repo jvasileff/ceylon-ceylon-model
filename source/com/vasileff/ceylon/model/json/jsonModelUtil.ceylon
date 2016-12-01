@@ -153,7 +153,10 @@ object jsonModelUtil {
 
     function toAnnotations(JsonObject json)
         // TODO once https://github.com/ceylon/ceylon/issues/6783 is fixed, the input
-        //      will be an array.
+        //      will be an array. Actually... need fully qualified name.
+        //      Should the name be for the annotation constructor or the annotation
+        //      class? The constructor is less useful, since we wouldn't be able to do
+        //      things like annotations.contains("ceylon.language::Shared").
         =>  json.collect((name->args) {
                 assert (is JsonArray args); 
                 return Annotation {
@@ -342,6 +345,7 @@ object jsonModelUtil {
                     container = scope;
                     name = getString(json, keyName);
                     extendedTypeLG = typeFromJsonLG(json);
+                    annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
                     isShared = packedAnnotations.get(sharedBit);
                 };
 
@@ -367,6 +371,7 @@ object jsonModelUtil {
                     container = scope;
                     name = getString(json, keyName);
                     typeLG = typeFromJsonLG(getObject(json, keyType));
+                    annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
                     isShared = packedAnnotations.get(sharedBit);
                     isActual = packedAnnotations.get(actualBit);
                     isFormal = packedAnnotations.get(formalBit);
@@ -400,6 +405,7 @@ object jsonModelUtil {
                     container = scope;
                     name = getString(json, keyName);
                     typeLG = typeFromJsonLG(getObject(json, keyType));
+                    annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
                     isShared = packedAnnotations.get(sharedBit);
                     isActual = packedAnnotations.get(actualBit);
                     isFormal = packedAnnotations.get(formalBit);
@@ -428,6 +434,8 @@ object jsonModelUtil {
                         //      not, remove them from Setter's parameter list.
                         declaration.isActual;
                         declaration.isDeprecated;
+                        annotations
+                            =   toAnnotations(getObjectOrEmpty(json, keyAnnotations));
                     };
 
             setter.addMembers {
@@ -456,13 +464,12 @@ object jsonModelUtil {
                     container = scope;
                     unit = scope.pkg.defaultUnit;
                     name = getString(json, keyName);
-
                     satisfiedTypesLG
                         =   getArrayOrEmpty(json, keySatisfies).map((s) {
                                 assert (is JsonObject s);
                                 return typeFromJsonLG(s);
                             });
-
+                    annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
                     isShared = packedAnnotations.get(sharedBit);
                     isActual = packedAnnotations.get(actualBit);
                     isFormal = packedAnnotations.get(formalBit);
@@ -494,18 +501,16 @@ object jsonModelUtil {
                     container = scope;
                     name = getString(json, keyName);
                     unit = scope.pkg.defaultUnit;
-
                     satisfiedTypesLG
                         =   getArrayOrEmpty(json, keySatisfies).map((s) {
                                 assert (is JsonObject s);
                                 return typeFromJsonLG(s);
                             });
-
                     extendedTypeLG
                         =   if (is JsonObject et = json[keyExtendedType])
                             then typeFromJsonLG(et)
                             else null;
-
+                    annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
                     isShared = packedAnnotations.get(sharedBit);
                     isActual = packedAnnotations.get(actualBit);
                     isFormal = packedAnnotations.get(formalBit);

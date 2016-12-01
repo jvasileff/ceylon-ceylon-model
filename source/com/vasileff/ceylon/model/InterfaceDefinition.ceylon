@@ -9,7 +9,7 @@ class InterfaceDefinition(
         isShared = false, isFormal = false, isActual = false,
         isDefault = false, isAnnotation = false, isDeprecated = false,
         isStatic = false, isSealed = false, isFinal = false,
-        unit = container.pkg.defaultUnit)
+        annotations = [], unit = container.pkg.defaultUnit)
         extends Interface() {
 
     {Type | Type(Scope)*} satisfiedTypesLG;
@@ -53,6 +53,7 @@ class InterfaceDefinition(
     shared actual String name;
     shared actual Integer? qualifier;
     shared actual Unit unit;
+    shared actual [Annotation*] annotations;
 
     shared actual Boolean isActual;
     shared actual Boolean isAnnotation;

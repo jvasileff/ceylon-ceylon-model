@@ -3,7 +3,7 @@ class Function(
         container, name, typeLG, qualifier = null, isDeclaredVoid = false, isShared = false,
         isFormal = false, isActual = false, isDefault = false, isAnnotation = false,
         isDeprecated = false, isStatic = false, isAnonymous = false, isNamed = true,
-        unit = container.pkg.defaultUnit)
+        annotations = [], unit = container.pkg.defaultUnit)
         extends FunctionOrValue()
         satisfies Functional & Generic {
 
@@ -30,6 +30,7 @@ class Function(
     shared actual Scope container;
     shared actual Integer? qualifier;
     shared actual Unit unit;
+    shared actual [Annotation*] annotations;
 
     shared actual default
     {TypeParameter*} typeParameters

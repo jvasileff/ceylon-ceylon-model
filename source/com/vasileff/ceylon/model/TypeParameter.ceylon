@@ -56,6 +56,7 @@ class TypeParameter(
     shared actual TypeParameter refinedDeclaration => this;
     shared actual Null selfType => null;
     shared actual Unit unit => container.unit;
+    shared actual [Annotation*] annotations => [];
 
     shared actual Boolean isActual => false;
     shared actual Boolean isAnnotation => false;

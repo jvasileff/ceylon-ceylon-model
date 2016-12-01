@@ -2,19 +2,21 @@ import com.vasileff.ceylon.model {
     Package,
     Unit,
     Module,
-    Declaration
+    Declaration,
+    Annotation
 }
 import com.vasileff.ceylon.structures {
     ListMultimap
 }
 
 shared
-class LazyJsonPackage(name, mod, json, Unit(Package)? unitLG = null)
-        extends Package(name, mod, unitLG) {
+class LazyJsonPackage(name, mod, json, annotations = [], Unit(Package)? unitLG = null)
+        extends Package(name, mod, annotations, unitLG) {
 
     [String+] name;
     Module mod;
     JsonObject json;
+    [Annotation*] annotations;
 
     variable Boolean allLoaded = false;
 

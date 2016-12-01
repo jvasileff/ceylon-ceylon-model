@@ -11,6 +11,7 @@ class Setter(getter, isActual = false, isDeprecated = false)
         return c;
     }
 
+    shared actual [Annotation*] annotations => [];
     shared actual Scope container => getter.container;
     shared actual String name => getter.name;
     shared actual Integer? qualifier => getter.qualifier;

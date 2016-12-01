@@ -3,7 +3,8 @@ class ClassAlias(
         container, name, extendedType, parameterLists = [ParameterList.empty],
         isAbstract = false, isActual = false, isDefault = false,
         isDeprecated = false, isFormal = false, isSealed = false,
-        isShared = false, qualifier = null, unit = container.pkg.defaultUnit)
+        isShared = false, qualifier = null, annotations = [],
+        unit = container.pkg.defaultUnit)
         extends Class() {
 
     shared actual Scope container;
@@ -13,6 +14,7 @@ class ClassAlias(
     shared actual [ParameterList+] parameterLists;
     shared actual Unit unit;
     shared actual Integer? qualifier;
+    shared actual [Annotation*] annotations;
 
     shared actual Boolean isActual;
     shared actual Boolean isDefault;

@@ -9,7 +9,7 @@ class ClassDefinition(
         isShared = false, isFormal = false, isActual = false, isDefault = false,
         isAnnotation = false, isDeprecated = false, isStatic = false, isSealed = false,
         isAbstract = false, isAnonymous = false, isNamed = true, isFinal = false,
-        unit = container.pkg.defaultUnit)
+        annotations = [], unit = container.pkg.defaultUnit)
         extends Class()
         satisfies Functional {
 
@@ -83,6 +83,7 @@ class ClassDefinition(
     shared actual String name;
     shared actual Integer? qualifier;
     shared actual Unit unit;
+    shared actual [Annotation*] annotations;
 
     shared actual Boolean isAbstract;
     shared actual Boolean isActual;

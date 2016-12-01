@@ -3,7 +3,10 @@ import com.vasileff.ceylon.model.internal {
 }
 
 shared abstract
-class Declaration() of TypeDeclaration | TypedDeclaration extends Element() {
+class Declaration() of TypeDeclaration | TypedDeclaration
+        extends Element()
+        satisfies Annotated {
+
     variable String? qualifiedNameMemo = null;
     variable Integer? hashMemo = null;
 

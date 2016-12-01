@@ -1,7 +1,8 @@
 shared final
 class CallableConstructor(
         name, container, extendedType, isDeprecated = false, isSealed = false,
-        isShared = false, isAbstract = false, unit = container.pkg.defaultUnit)
+        isShared = false, isAbstract = false, annotations = [],
+        unit = container.pkg.defaultUnit)
         extends Constructor()
         satisfies Functional {
 
@@ -9,6 +10,7 @@ class CallableConstructor(
     shared actual String name;
     shared actual Type extendedType;
     shared actual Unit unit;
+    shared actual [Annotation*] annotations;
 
     shared actual Boolean isDeprecated;
     shared actual Boolean isSealed;

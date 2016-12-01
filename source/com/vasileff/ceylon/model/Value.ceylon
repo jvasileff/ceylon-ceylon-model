@@ -1,7 +1,7 @@
 shared
 class Value(container, name, typeLG, isShared = false,
         isFormal = false, isActual = false, isDefault = false, isDeprecated = false,
-        isStatic = false, isLate = false, isVariable = false,
+        isStatic = false, isLate = false, isVariable = false, annotations = [],
         unit = container.pkg.defaultUnit)
         extends FunctionOrValue() {
 
@@ -19,6 +19,7 @@ class Value(container, name, typeLG, isShared = false,
     shared actual Scope container;
     shared actual String name;
     shared actual Unit unit;
+    shared actual [Annotation*] annotations;
 
     shared actual Value refinedDeclaration {
         assert(is Value c = super.refinedDeclaration);

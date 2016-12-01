@@ -1,7 +1,7 @@
 shared
 class TypeAlias(
         container, name, extendedTypeLG, isDeprecated = false, isShared = false,
-        isStatic = false, qualifier = null, isAnonymous = false,
+        isStatic = false, qualifier = null, isAnonymous = false, annotations = [],
         unit = container.pkg.defaultUnit)
         extends TypeDeclaration() {
 
@@ -13,6 +13,7 @@ class TypeAlias(
     shared actual String name;
     shared actual Integer? qualifier;
     shared actual Unit unit;
+    shared actual [Annotation*] annotations;
 
     shared actual Type[] satisfiedTypes = [];
     shared actual Type[] caseTypes = [];

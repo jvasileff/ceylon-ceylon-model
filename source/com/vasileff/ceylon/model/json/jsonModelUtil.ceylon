@@ -8,6 +8,7 @@ import com.vasileff.ceylon.model {
     covariant,
     contravariant,
     ClassDefinition,
+    Annotation,
     Function,
     Package,
     invariant,
@@ -149,6 +150,32 @@ object jsonModelUtil {
     shared
     String? parseModuleVersion(JsonObject json)
         =>  getStringOrNull(json, keyModuleVersion);
+
+    function toAnnotations(JsonObject json)
+        // TODO once https://github.com/ceylon/ceylon/issues/6783 is fixed, the input
+        //      will be an array.
+        =>  json.collect((name->args) {
+                assert (is JsonArray args); 
+                return Annotation {
+                    name;
+                    args.collect((arg) {
+                        assert (is String arg);
+                        return arg; 
+                    });
+                };
+            });
+
+    shared
+    [Annotation*] parseModuleAnnotations(JsonObject json)
+        =>  toAnnotations(getObjectOrEmpty(json, keyModuleAnnotations));
+
+    shared
+    [Annotation*] parsePackageAnnotations(JsonObject json)
+        =>  toAnnotations(getObjectOrEmpty(json, keyPackageAnnotations));
+
+    shared
+    Boolean parsePackageSharedAnnotation(JsonObject json)
+        =>  getIntegerOrNull(json, keyPackedAnnotations)?.get(sharedBit) else false;
 
     shared
     Type parseType(Scope scope, JsonObject json) {

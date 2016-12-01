@@ -10,13 +10,14 @@ import com.vasileff.ceylon.structures {
 }
 
 shared
-class LazyJsonPackage(name, mod, json, annotations = [], Unit(Package)? unitLG = null)
-        extends Package(name, mod, annotations, unitLG) {
-
-    [String+] name;
-    Module mod;
-    JsonObject json;
-    [Annotation*] annotations;
+class LazyJsonPackage(
+        [String+] name,
+        Module mod,
+        JsonObject json,
+        Boolean isShared = jsonModelUtil.parsePackageSharedAnnotation(json),
+        [Annotation*] annotations = jsonModelUtil.parsePackageAnnotations(json),
+        Unit(Package)? unitLG = null)
+        extends Package(name, mod, isShared, annotations, unitLG) {
 
     variable Boolean allLoaded = false;
 

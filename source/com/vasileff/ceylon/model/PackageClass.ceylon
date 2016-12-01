@@ -9,7 +9,7 @@ import com.vasileff.ceylon.structures {
 }
 
 shared
-class Package(name, mod, annotations = [], Unit(Package)? unitLG = null)
+class Package(name, mod, isShared = false, annotations = [], Unit(Package)? unitLG = null)
         satisfies Scope & Annotated {
 
     shared
@@ -17,6 +17,9 @@ class Package(name, mod, annotations = [], Unit(Package)? unitLG = null)
 
     shared actual
     Module mod;
+
+    shared
+    Boolean isShared;
 
     shared actual
     [Annotation*] annotations;

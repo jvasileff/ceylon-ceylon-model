@@ -7,8 +7,7 @@ import com.vasileff.ceylon.model {
     Package,
     Unit,
     NothingDeclaration,
-    ModuleImport,
-    Annotation
+    ModuleImport
 }
 
 shared
@@ -18,11 +17,8 @@ class LazyJsonModule(
         shared Boolean runToplevel(String toplevelDeclaration) => false,
         [String+] name = jsonModelUtil.parseModuleName(json),
         String? version = jsonModelUtil.parseModuleVersion(json),
-        // TODO
-        // [Annotation*] annotations = jsonModelUtil.parseModuleAnnotations(json),
-        [Annotation*] annotations = [],
         Unit(Package)? unitLG = null)
-        extends Module(name, version, annotations, unitLG) {
+        extends Module(name, version, unitLG) {
 
     variable Boolean allLoaded = false;
 

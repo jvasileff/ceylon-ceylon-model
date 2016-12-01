@@ -10,16 +10,13 @@ import com.vasileff.ceylon.model.internal {
 }
 
 shared
-class Module(name, version, annotations = [], unitLG = null) satisfies Annotated {
+class Module(name, version, unitLG = null) {
 
     shared
     [String+] name;
 
     shared
     String? version;
-
-    shared actual
-    [Annotation*] annotations;
 
     Unit(Package)? unitLG;
 

@@ -1,11 +1,20 @@
 shared final
 class CallableConstructor(
-        String name, Class container, Type extendedType, Boolean isDeprecated = false,
-        Boolean isSealed = false, Boolean isShared = false,
-        Unit unit = container.pkg.defaultUnit)
-        extends Constructor(
-            name, container, extendedType, isDeprecated, isSealed, isShared, unit)
+        name, container, extendedType, isDeprecated = false, isSealed = false,
+        isShared = false, isAbstract = false, unit = container.pkg.defaultUnit)
+        extends Constructor()
         satisfies Functional {
+
+    shared actual Class container;
+    shared actual String name;
+    shared actual Type extendedType;
+    shared actual Unit unit;
+
+    shared actual Boolean isDeprecated;
+    shared actual Boolean isSealed;
+    shared actual Boolean isShared;
+
+    shared Boolean isAbstract;
 
     variable [ParameterList] _parameterLists = [ParameterList.empty];
 
@@ -30,7 +39,7 @@ class CallableConstructor(
     }
 
     shared actual
-    Boolean declaredVoid => false;
+    Boolean isDeclaredVoid => false;
 
     shared actual
     CallableConstructor refinedDeclaration => this;

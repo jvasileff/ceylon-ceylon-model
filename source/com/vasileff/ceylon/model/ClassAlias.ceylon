@@ -23,7 +23,7 @@ class ClassAlias(
 
     shared actual [] caseTypes => [];
     shared actual [] caseValues => [];
-    shared actual Boolean declaredVoid => false;
+    shared actual Boolean isDeclaredVoid => false;
     shared actual [] satisfiedTypes => [];
     shared actual Null selfType => null;
 

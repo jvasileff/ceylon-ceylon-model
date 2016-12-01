@@ -118,7 +118,7 @@ class ClassDefinition(
     }
 
     shared actual
-    Boolean declaredVoid
+    Boolean isDeclaredVoid
         =>  false;
 
     shared actual

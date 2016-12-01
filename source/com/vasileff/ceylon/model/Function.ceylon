@@ -1,6 +1,6 @@
 shared
 class Function(
-        container, name, typeLG, qualifier = null, declaredVoid = false, isShared = false,
+        container, name, typeLG, qualifier = null, isDeclaredVoid = false, isShared = false,
         isFormal = false, isActual = false, isDefault = false, isAnnotation = false,
         isDeprecated = false, isStatic = false, isAnonymous = false, isNamed = true,
         unit = container.pkg.defaultUnit)
@@ -69,7 +69,7 @@ class Function(
     shared actual Boolean isShared;
     shared actual Boolean isStatic;
 
-    shared actual Boolean declaredVoid;
+    shared actual Boolean isDeclaredVoid;
 
     shared actual
     String string

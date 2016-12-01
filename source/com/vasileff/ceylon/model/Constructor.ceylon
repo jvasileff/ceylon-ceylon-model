@@ -1,18 +1,7 @@
 shared abstract
-class Constructor(
-        name, container, extendedType, isDeprecated = false, isSealed = false,
-        isShared = false, unit = container.pkg.defaultUnit)
+class Constructor()
         of CallableConstructor | ValueConstructor
         extends TypeDeclaration() {
-
-    shared actual Class container;
-    shared actual String name;
-    shared actual Type extendedType;
-    shared actual Unit unit;
-
-    shared actual Boolean isDeprecated;
-    shared actual Boolean isSealed;
-    shared actual Boolean isShared;
 
     shared actual [] caseTypes => [];
     shared actual [] caseValues => [];
@@ -30,9 +19,11 @@ class Constructor(
     shared actual Boolean isNamed => true;
     shared actual Boolean isStatic => false;
 
+    shared actual formal Type extendedType;
+
     shared actual
     Declaration? getMember(String name, Unit? unit)
-        // don't search supertypes (constructor's don't have supertypes)
+        // don't search supertypes (constructors don't have supertypes)
         =>  getDirectMember(name);
 
     shared actual

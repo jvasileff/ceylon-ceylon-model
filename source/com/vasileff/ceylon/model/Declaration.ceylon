@@ -22,6 +22,8 @@ class Declaration() of TypeDeclaration | TypedDeclaration extends Element() {
     shared formal Integer? qualifier;
     shared formal String name;
 
+    // TODO shared formal [String*] aliases;
+
     variable Declaration? refinedDeclarationMemo = null;
 
     Declaration locateRefinedDeclaration() {

@@ -1,14 +1,20 @@
 shared
 class ClassAlias(
-        container, name, extendedType, parameterLists = [ParameterList.empty],
+        container, name, extendedTypeLG, parameterLists = [ParameterList.empty],
         isAbstract = false, isActual = false, isDefault = false,
         isDeprecated = false, isFormal = false, isSealed = false,
         isShared = false, qualifier = null, annotations = [],
         unit = container.pkg.defaultUnit)
-        extends Class() {
+        extends Class(extendedTypeLG) {
+
+    Type | Type(Scope) extendedTypeLG;
+
+    shared actual Type extendedType {
+        assert (exists extendedType = super.extendedType);
+        return extendedType;
+    }
 
     shared actual Scope container;
-    shared actual Type extendedType;
     shared actual Boolean isAbstract;
     shared actual String name;
     shared actual [ParameterList+] parameterLists;

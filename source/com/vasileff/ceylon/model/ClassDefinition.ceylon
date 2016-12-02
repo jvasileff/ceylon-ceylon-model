@@ -10,7 +10,7 @@ class ClassDefinition(
         isAnnotation = false, isDeprecated = false, isStatic = false, isSealed = false,
         isAbstract = false, isAnonymous = false, isNamed = true, isFinal = false,
         annotations = [], unit = container.pkg.defaultUnit)
-        extends Class()
+        extends Class(extendedTypeLG, satisfiedTypesLG)
         satisfies Functional {
 
     {Type | Type(Scope)*} satisfiedTypesLG;
@@ -20,59 +20,8 @@ class ClassDefinition(
 
     variable [ParameterList] _parameterLists = [ParameterList.empty];
 
-    variable [Type*]? satisfiesTypesMemo = null;
     variable [Type*]? caseTypesMemo = null;
     variable [Value*]? caseValuesMemo = null;
-    variable Type? extendedTypeMemo = null;
-
-    "Used to avoid circularities, particularly with Scope.getBase() attempting to search
-     inherited members while lazily generating the supertypes that define inheritance.
-
-     When `true`, supertype members will be effectively not in scope."
-    variable value definingInheritance = false;
-
-    shared actual
-    Type? extendedType {
-        if (exists result = extendedTypeMemo) {
-            return result;
-        }
-        else if (definingInheritance) {
-            return null;
-        }
-        else {
-            try {
-                definingInheritance = true;
-                return extendedTypeMemo
-                    =   switch (extendedTypeLG)
-                        case (is Null) null
-                        case (is Type) (extendedTypeMemo = extendedTypeLG)
-                        else (extendedTypeMemo = extendedTypeLG(this));
-            }
-            finally {
-                definingInheritance = false;
-            }
-        }
-    }
-
-    shared actual
-    Type[] satisfiedTypes {
-        if (exists result = satisfiesTypesMemo) {
-            return result;
-        }
-        else if (definingInheritance) {
-            return [];
-        }
-        else {
-            try {
-                definingInheritance = true;
-                return satisfiesTypesMemo
-                    =   satisfiedTypesLG.collect(toType(this));
-            }
-            finally {
-                definingInheritance = false;
-            }
-        }
-    }
 
     shared actual
     Type[] caseTypes

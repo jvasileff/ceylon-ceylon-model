@@ -14,7 +14,9 @@ import com.vasileff.ceylon.model {
     invariant,
     InterfaceDefinition,
     Class,
+    ClassAlias,
     Interface,
+    InterfaceAlias,
     Value,
     Setter,
     TypeAlias,
@@ -496,30 +498,57 @@ object jsonModelUtil {
         value packedAnnotations
             =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
 
+        value isAlias
+            =   getIntegerOrNull(json, keyAlias) exists;
+
         value declaration
-            =   ClassDefinition {
-                    container = scope;
-                    name = getString(json, keyName);
-                    unit = scope.pkg.defaultUnit;
-                    satisfiedTypesLG
-                        =   getArrayOrEmpty(json, keySatisfies).map((s) {
-                                assert (is JsonObject s);
-                                return typeFromJsonLG(s);
-                            });
-                    extendedTypeLG
-                        =   if (is JsonObject et = json[keyExtendedType])
-                            then typeFromJsonLG(et)
-                            else null;
-                    annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
-                    isShared = packedAnnotations.get(sharedBit);
-                    isActual = packedAnnotations.get(actualBit);
-                    isFormal = packedAnnotations.get(formalBit);
-                    isDefault = packedAnnotations.get(defaultBit);
-                    isSealed = packedAnnotations.get(sealedBit);
-                    isFinal = packedAnnotations.get(finalBit);
-                    isAnnotation = packedAnnotations.get(annotationBit);
-                    isAbstract = packedAnnotations.get(abstractBit);
-                };
+            =   if (isAlias) then           
+                    ClassAlias {
+                        container = scope;
+                        name = getString(json, keyName);
+                        unit = scope.pkg.defaultUnit;
+                        extendedTypeLG
+                            =   typeFromJsonLG {
+                                    getObject(json, keyExtendedType);
+                                };
+                        annotations
+                            =   toAnnotations {
+                                    getObjectOrEmpty(json, keyAnnotations);
+                                };
+                        isShared = packedAnnotations.get(sharedBit);
+                        isActual = packedAnnotations.get(actualBit);
+                        isFormal = packedAnnotations.get(formalBit);
+                        isDefault = packedAnnotations.get(defaultBit);
+                        isSealed = packedAnnotations.get(sealedBit);
+                        isAbstract = packedAnnotations.get(abstractBit);
+                    }
+                else
+                    ClassDefinition {
+                        container = scope;
+                        name = getString(json, keyName);
+                        unit = scope.pkg.defaultUnit;
+                        satisfiedTypesLG
+                            =   getArrayOrEmpty(json, keySatisfies).map((s) {
+                                    assert (is JsonObject s);
+                                    return typeFromJsonLG(s);
+                                });
+                        extendedTypeLG
+                            =   if (is JsonObject et = json[keyExtendedType])
+                                then typeFromJsonLG(et)
+                                else null;
+                        annotations
+                            =   toAnnotations {
+                                    getObjectOrEmpty(json, keyAnnotations);
+                                };
+                        isShared = packedAnnotations.get(sharedBit);
+                        isActual = packedAnnotations.get(actualBit);
+                        isFormal = packedAnnotations.get(formalBit);
+                        isDefault = packedAnnotations.get(defaultBit);
+                        isSealed = packedAnnotations.get(sealedBit);
+                        isFinal = packedAnnotations.get(finalBit);
+                        isAnnotation = packedAnnotations.get(annotationBit);
+                        isAbstract = packedAnnotations.get(abstractBit);
+                    };
 
         declaration.addMembers {
             parseMembers {

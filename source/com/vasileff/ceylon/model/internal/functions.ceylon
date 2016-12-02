@@ -22,6 +22,12 @@ Type toType(Scope scope)(Type | Type(Scope) lt)
         else (lt(scope));
 
 shared
+Value toValue(Scope scope)(Value | Value(Scope) lv)
+    =>  switch (lv)
+        case (is Value) lv
+        else (lv(scope));
+
+shared
 Class assertedClass(Declaration? d) {
     assert (is Class d);
     return d;

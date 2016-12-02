@@ -4,9 +4,9 @@ import com.vasileff.ceylon.model.internal {
 
 shared
 class TypeParameter(
-        container, name, satisfiedTypesLG = [], caseTypesLG = [],
-        variance = invariant, selfTypeDeclaration = null,
-        defaultTypeArgumentLG = null, isTypeConstructor = false)
+        container, name, satisfiedTypesLG = [], caseTypesLG = [], variance = invariant,
+        selfTypeDeclaration = null, defaultTypeArgumentLG = null,
+        isTypeConstructor = false)
         extends TypeDeclaration() {
 
     {Type | Type(Scope)*} satisfiedTypesLG;
@@ -40,10 +40,6 @@ class TypeParameter(
                 then (defaultTypeArgumentMemo = toType(this)(defaultTypeArgumentLG))
                 else null);
 
-    // TODO lazy
-    shared actual
-    Value[] caseValues => nothing;
-
     shared actual Declaration container;
     shared actual String name;
     shared TypeDeclaration? selfTypeDeclaration;
@@ -51,6 +47,7 @@ class TypeParameter(
 
     shared Boolean isTypeConstructor;
 
+    shared actual Value[] caseValues => [];
     shared actual Type extendedType => unit.anythingDeclaration.type;
     shared actual Null qualifier => null;
     shared actual TypeParameter refinedDeclaration => this;

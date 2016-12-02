@@ -1,11 +1,11 @@
 import com.vasileff.ceylon.model.internal {
-    toType
+    toType, toValue
 }
 
 shared
 class ClassDefinition(
         container, name, extendedTypeLG, qualifier = null,
-        satisfiedTypesLG = [], caseTypesLG = [], caseValues = [],
+        satisfiedTypesLG = [], caseTypesLG = [], caseValuesLG = [],
         isShared = false, isFormal = false, isActual = false, isDefault = false,
         isAnnotation = false, isDeprecated = false, isStatic = false, isSealed = false,
         isAbstract = false, isAnonymous = false, isNamed = true, isFinal = false,
@@ -15,12 +15,14 @@ class ClassDefinition(
 
     {Type | Type(Scope)*} satisfiedTypesLG;
     {Type | Type(Scope)*} caseTypesLG;
+    {Value | Value(Scope)*} caseValuesLG;
     Type | Type(Scope) | Null extendedTypeLG;
 
     variable [ParameterList] _parameterLists = [ParameterList.empty];
 
     variable [Type*]? satisfiesTypesMemo = null;
     variable [Type*]? caseTypesMemo = null;
+    variable [Value*]? caseValuesMemo = null;
     variable Type? extendedTypeMemo = null;
 
     "Used to avoid circularities, particularly with Scope.getBase() attempting to search
@@ -78,7 +80,11 @@ class ClassDefinition(
         =>  caseTypesMemo else (caseTypesMemo
             =   caseTypesLG.collect(toType(this)));
 
-    shared actual Value[] caseValues;
+    shared actual
+    Value[] caseValues
+        =>  caseValuesMemo else (caseValuesMemo
+            =   caseValuesLG.collect(toValue(this)));
+
     shared actual Scope container;
     shared actual String name;
     shared actual Integer? qualifier;

@@ -457,9 +457,21 @@ object jsonModelUtil {
 
     shared
     Interface parseInterface(Scope scope, JsonObject json) {
-        // TODO InterfaceAliases
+
         value packedAnnotations
             =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
+
+        if (exists aliasJson = getObjectOrNull(json, keyAlias)) {
+            return InterfaceAlias {
+                container = scope;
+                unit = scope.pkg.defaultUnit;
+                name = getString(json, keyName);
+                extendedTypeLG = typeFromJsonLG(getObject(json, keyExtendedType));
+                annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
+                isShared = packedAnnotations.get(sharedBit);
+                isSealed = packedAnnotations.get(sealedBit);
+            };
+        }
 
         value declaration
             =   InterfaceDefinition {
@@ -494,7 +506,7 @@ object jsonModelUtil {
 
     shared
     Class parseClass(Scope scope, JsonObject json) {
-        // TODO ClassAliases
+
         value packedAnnotations
             =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
 

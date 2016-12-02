@@ -26,7 +26,9 @@ class Class(extendedTypeLG, satisfiedTypesLG = [])
             return result;
         }
         else if (definingInheritance) {
-            return null;
+            // TODO ok? Hopefully no-one caches this! We can't return `null` without
+            //      making ClassAlias.extendedType optional
+            return unit.anythingDeclaration.type;
         }
         else {
             try {
@@ -65,7 +67,8 @@ class Class(extendedTypeLG, satisfiedTypesLG = [])
 
     shared formal Boolean isAbstract;
 
-    shared actual default Class refinedDeclaration {
+    shared actual default
+    Class refinedDeclaration {
         assert(is Class f = super.refinedDeclaration);
         return f;
     }

@@ -1,14 +1,15 @@
 shared final
 class CallableConstructor(
-        name, container, extendedType, isDeprecated = false, isSealed = false,
+        name, container, isDeprecated = false, isSealed = false,
         isShared = false, isAbstract = false, annotations = [],
         unit = container.pkg.defaultUnit)
         extends Constructor()
         satisfies Functional {
 
+    variable Type? extendedTypeMemo = null;
+
     shared actual Class container;
     shared actual String name;
-    shared actual Type extendedType;
     shared actual Unit unit;
     shared actual [Annotation*] annotations;
 
@@ -19,6 +20,10 @@ class CallableConstructor(
     shared Boolean isAbstract;
 
     variable [ParameterList] _parameterLists = [ParameterList.empty];
+
+    shared actual Type extendedType
+        =>  extendedTypeMemo else (
+                extendedTypeMemo = container.type);
 
     shared actual
     [ParameterList] parameterLists

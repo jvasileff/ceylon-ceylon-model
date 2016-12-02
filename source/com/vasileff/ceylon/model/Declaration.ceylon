@@ -128,7 +128,7 @@ class Declaration() of TypeDeclaration | TypedDeclaration
     shared see(`function aggregateTypeArguments`)
     Map<TypeParameter, Type> typeParametersAsArguments
         =>  if (is Generic self = this, !self.typeParameters.empty)
-            then map(self.typeParameters.tabulate(TypeParameter.type))
+            then self.typeParameters.tabulate(TypeParameter.type)
             else emptyMap;
 
     "Is [[other]] assignable to `this`'s type? This method must be refined

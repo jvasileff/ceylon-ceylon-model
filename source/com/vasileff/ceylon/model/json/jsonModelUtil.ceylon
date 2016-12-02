@@ -1,6 +1,9 @@
 import com.vasileff.ceylon.model {
     Scope,
     Type,
+    Constructor,
+    CallableConstructor,
+    ValueConstructor,
     Declaration,
     TypeParameter,
     Variance,
@@ -245,16 +248,25 @@ object jsonModelUtil {
         =>  expand {
                 // TypeParameters
                 if (is Declaration scope)
-                then parseTypeParameters {
-                    scope;
-                    getArrayOrEmpty(json, keyTypeParams);
-                    selfTypeName;
-                } else [],
+                    then parseTypeParameters {
+                        scope;
+                        getArrayOrEmpty(json, keyTypeParams);
+                        selfTypeName;
+                    }
+                    else [],
                 // Classes
                 getObjectOrEmpty(json, keyClasses).items.map((classJson) {
                     assert (is JsonObject classJson);
                     return parseClass(scope, classJson);                
                 }),
+                // Constructors
+                if (is Class scope)
+                    then getObjectOrEmpty(json, keyConstructors)
+                        .map((_ -> constructorJson) {
+                            assert (is JsonObject constructorJson);
+                            return parseConstructor(scope, constructorJson);
+                        })
+                    else [],
                 // Interfaces
                 getObjectOrEmpty(json, keyInterfaces).items.map((interfaceJson) {
                     assert (is JsonObject interfaceJson);
@@ -492,6 +504,53 @@ object jsonModelUtil {
                     isFinal = packedAnnotations.get(finalBit);
                     isAnnotation = packedAnnotations.get(annotationBit);
                 };
+
+        declaration.addMembers {
+            parseMembers {
+                scope = declaration;
+                json = json;
+                selfTypeName = getStringOrNull(json, keySelfType);
+            };
+        };
+
+        return declaration;
+    }
+
+    shared
+    Constructor parseConstructor(Class scope, JsonObject json) {
+
+        value packedAnnotations
+            =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
+
+        value parameters
+            =   getArrayOrNull(json, keyParams);
+
+        value declaration
+            =   if (parameters exists) then
+                    CallableConstructor {
+                        container = scope;
+                        unit = scope.pkg.defaultUnit;
+                        name = getStringOrNull(json, keyName) else "";
+                        annotations = toAnnotations {
+                            getObjectOrEmpty(json, keyAnnotations);
+                        };
+                        isShared = packedAnnotations.get(sharedBit);
+                        isSealed = packedAnnotations.get(sealedBit);
+                        isAbstract = packedAnnotations.get(abstractBit);
+                    }
+                else
+                    ValueConstructor {
+                        container = scope;
+                        unit = scope.pkg.defaultUnit;
+                        name = getString(json, keyName);
+                        annotations = toAnnotations {
+                            getObjectOrEmpty(json, keyAnnotations);
+                        };
+                        isShared = packedAnnotations.get(sharedBit);
+                        isSealed = packedAnnotations.get(sealedBit);
+                    };
+
+        // TODO parameters
 
         declaration.addMembers {
             parseMembers {

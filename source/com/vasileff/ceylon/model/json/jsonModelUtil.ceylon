@@ -193,7 +193,7 @@ object jsonModelUtil {
 
     shared
     Type parseType(Scope scope, JsonObject json) {
-        if (exists compositeType = getStringOrNull(json, keyComposite)) {
+        if (exists compositeType = getStringOrNull(json, keyCompositeType)) {
             switch (compositeType)
             case ("u") {
                 return unionDeduped {

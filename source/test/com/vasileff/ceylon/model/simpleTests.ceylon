@@ -11,7 +11,7 @@ import com.vasileff.ceylon.model {
     covariant,
     Module,
     Package,
-    ClassDefinition,
+    ClassWithInitializer,
     NothingDeclaration,
     InterfaceDefinition,
     Type,
@@ -56,7 +56,7 @@ Module loadLanguageModule() {
 
     // ceylon.language::Anything
     ceylonLanguagePackage.defaultUnit.addDeclaration {
-        ClassDefinition {
+        ClassWithInitializer {
             container = ceylonLanguagePackage;
             unit = ceylonLanguagePackage.defaultUnit;
             name = "Anything";
@@ -70,7 +70,7 @@ Module loadLanguageModule() {
 
     // ceylon.language::Object
     ceylonLanguagePackage.defaultUnit.addDeclaration {
-        ClassDefinition {
+        ClassWithInitializer {
             container = ceylonLanguagePackage;
             name = "Object";
             extendedTypeLG = parseTypeLG("Anything");
@@ -88,7 +88,7 @@ Module loadLanguageModule() {
 
     // ceylon.language::Basic satisfies Identifiable
     ceylonLanguagePackage.defaultUnit.addDeclaration {
-        ClassDefinition {
+        ClassWithInitializer {
             container = ceylonLanguagePackage;
             name = "Basic";
             extendedTypeLG = parseTypeLG("Object");
@@ -99,7 +99,7 @@ Module loadLanguageModule() {
 
     // ceylon.language::Null
     ceylonLanguagePackage.defaultUnit.addDeclaration {
-        ClassDefinition {
+        ClassWithInitializer {
             container = ceylonLanguagePackage;
             name = "Null";
             extendedTypeLG = parseTypeLG("Anything");
@@ -108,7 +108,7 @@ Module loadLanguageModule() {
 
     // ceylon.language::Character
     ceylonLanguagePackage.defaultUnit.addDeclaration {
-        ClassDefinition {
+        ClassWithInitializer {
             container = ceylonLanguagePackage;
             name = "Character";
             extendedTypeLG = parseTypeLG("Object");
@@ -116,7 +116,7 @@ Module loadLanguageModule() {
     };
 
     // ceylon.language::String(List<Character>)
-    value stringDefinition = ClassDefinition {
+    value stringDefinition = ClassWithInitializer {
         container = ceylonLanguagePackage;
         name = "String";
         extendedTypeLG = parseTypeLG("Object");
@@ -137,7 +137,7 @@ Module loadLanguageModule() {
 
     // ceylon.language::Entry
     value entryDeclaration
-        =   ClassDefinition {
+        =   ClassWithInitializer {
                 container = ceylonLanguagePackage;
                 name = "Entry";
                 extendedTypeLG = parseTypeLG("Object");
@@ -249,7 +249,7 @@ Module loadLanguageModule() {
 
     // ceylon.language::Tuple
     value tupleDeclaration
-        =   ClassDefinition {
+        =   ClassWithInitializer {
                 container = ceylonLanguagePackage;
                 name = "Tuple";
                 extendedTypeLG = parseTypeLG("Object");
@@ -423,7 +423,7 @@ void substitutionsSimple() {
 
     // Outer<T>
     value outerDeclaration
-        =   ClassDefinition {
+        =   ClassWithInitializer {
                 container = pkg;
                 name = "Outer";
                 extendedTypeLG = unit.basicDeclaration.type;
@@ -438,7 +438,7 @@ void substitutionsSimple() {
 
     // Inner<U>
     value innerDeclaration
-        =   ClassDefinition {
+        =   ClassWithInitializer {
                 container = outerDeclaration;
                 name = "Inner";
                 extendedTypeLG = unit.basicDeclaration.type;
@@ -499,7 +499,7 @@ void memberGenericTypesJson() {
 
     // Outer<T>
     value outerDeclaration
-        =   ClassDefinition {
+        =   ClassWithInitializer {
                 container = pkg;
                 name = "Outer";
                 extendedTypeLG = unit.basicDeclaration.type;
@@ -516,7 +516,7 @@ void memberGenericTypesJson() {
 
     // Inner<U>
     value innerDeclaration
-        =   ClassDefinition {
+        =   ClassWithInitializer {
                 container = outerDeclaration;
                 name = "Inner";
                 extendedTypeLG = unit.basicDeclaration.type;

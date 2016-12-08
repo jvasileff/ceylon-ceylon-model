@@ -32,6 +32,7 @@ shared String keySetter        = "$set";
 shared String keyAlias         = "$alias";
 
 shared String keyDefault       = "def";
+shared String keySequenced     = "seq";
 shared String keyNamed         = "nam";
 shared String keyDynamic       = "dyn";
 shared String keyStatic        = "sta";

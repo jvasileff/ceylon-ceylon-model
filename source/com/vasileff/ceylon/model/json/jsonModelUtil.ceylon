@@ -1,6 +1,8 @@
 import com.vasileff.ceylon.model {
     Scope,
     Type,
+    Functional,
+    FunctionOrValue,
     Constructor,
     CallableConstructor,
     ValueConstructor,
@@ -11,6 +13,8 @@ import com.vasileff.ceylon.model {
     covariant,
     contravariant,
     ClassDefinition,
+    ClassWithInitializer,
+    ClassWithConstructors,
     Annotation,
     Function,
     Package,
@@ -20,6 +24,8 @@ import com.vasileff.ceylon.model {
     ClassAlias,
     Interface,
     InterfaceAlias,
+    Parameter,
+    ParameterList,
     Value,
     Setter,
     TypeAlias,
@@ -393,6 +399,31 @@ object jsonModelUtil {
                     isAnnotation = packedAnnotations.get(annotationBit);
                 };
 
+        // value ParameterLists      
+        if (nonempty parameterListsJson
+                =   getArrayOrNull(json, keyParams)?.sequence()) {
+
+            assert (nonempty parameterLists
+                =   parameterListsJson.indexed.collect((i->parameterListJson) {
+                        assert (is JsonArray parameterListJson);
+                        return parseParameterList {
+                            declaration;
+                            parameterListJson;
+                            i == 0;
+                        };
+                    }));
+
+            // Hackish: see note in parseParameterList: add the models as members
+            //          for functions and constructors
+            declaration.addMembers {
+                for (pl in parameterLists) for (p in pl.parameters) p.model
+            };
+
+            declaration.parameterLists = parameterLists;
+        }
+
+        // remaining members
+
         declaration.addMembers {
             parseMembers {
                 scope = declaration;
@@ -401,16 +432,51 @@ object jsonModelUtil {
             };
         };
 
-        // TODO Value Parameters & ParameterLists      
-        // NOTE: json schema is inefficient with value parameters; no need to
-        //       repeat type info!
-
         return declaration;
     }
 
+    ParameterList parseParameterList(
+            Declaration & Functional scope, JsonArray json, Boolean first)
+
+        // Hackish: For classes, Function and Value models will already be available
+        // in the scope. For functions, methods, and constructors, we must create our
+        // own values, and the caller will add them to the scope.
+        //
+        // Better would be to have the JSON for *all* functional types to include models
+        // for functions and values as members, and for the parameter lists, avoid
+        // duplication by only having the name and isVariadic (or whatever is needed).
+        =>  ParameterList {
+            json.collect((jsonParameter) {
+                assert (is JsonObject jsonParameter);
+                FunctionOrValue model;
+                if (exists m = scope.getDirectMember(getString(jsonParameter, keyName))) {
+                    "Parameters are functions or values"
+                    assert (is FunctionOrValue m);
+                    model = m;
+                }
+                else {
+                    switch (type = getString(jsonParameter, "$pt"))
+                    case ("f") {
+                        model = parseFunction(scope, jsonParameter);
+                    }
+                    case ("v") {
+                        model = parseValue(scope, jsonParameter)[0];
+                    }
+                    else {
+                        throw AssertionError("Unexpected parameter type '``type``'");
+                    }
+                }
+
+                return Parameter {
+                    model = model;
+                    isDefaulted = jsonParameter[keyDefault] exists;
+                    isSequenced = jsonParameter[keySequenced] exists;
+                };
+            });
+        };
+
     shared
     [Value] | [Value, Setter] parseValue(Scope scope, JsonObject json) {
-        // TODO return [Value]|[Value, Setter]
         value packedAnnotations
             =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
 
@@ -523,7 +589,7 @@ object jsonModelUtil {
             =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
 
         value parameters
-            =   getArrayOrNull(json, keyParams);
+            =   getArrayOrNull(json, keyParams)?.sequence();
 
         value declaration
             =   if (parameters exists) then
@@ -550,7 +616,18 @@ object jsonModelUtil {
                         isSealed = packedAnnotations.get(sealedBit);
                     };
 
-        // TODO parameters
+        // value ParameterLists     
+        if (nonempty parameters) {
+            assert (is CallableConstructor declaration);
+            value parameterList = parseParameterList(declaration, parameters, true);
+
+            // Hackish: see note in parseParameterList: add the models as members
+            //          for functions and constructors
+            declaration.addMembers(parameterList.parameters.map((Parameter.model)));
+            declaration.parameterList = parameterList;
+        }
+
+        // remaining members
 
         declaration.addMembers {
             parseMembers {
@@ -572,6 +649,9 @@ object jsonModelUtil {
         value isAlias
             =   getIntegerOrNull(json, keyAlias) exists;
 
+        value constructors
+            =   getObjectOrNull(json, keyConstructors);
+ 
         value declaration
             =   if (isAlias) then           
                     ClassAlias {
@@ -593,8 +673,35 @@ object jsonModelUtil {
                         isSealed = packedAnnotations.get(sealedBit);
                         isAbstract = packedAnnotations.get(abstractBit);
                     }
+                else if (!constructors exists) then
+                    ClassWithInitializer {
+                        container = scope;
+                        name = getString(json, keyName);
+                        unit = scope.pkg.defaultUnit;
+                        satisfiedTypesLG
+                            =   getArrayOrEmpty(json, keySatisfies).map((s) {
+                                    assert (is JsonObject s);
+                                    return typeFromJsonLG(s);
+                                });
+                        extendedTypeLG
+                            =   if (is JsonObject et = json[keyExtendedType])
+                                then typeFromJsonLG(et)
+                                else null;
+                        annotations
+                            =   toAnnotations {
+                                    getObjectOrEmpty(json, keyAnnotations);
+                                };
+                        isShared = packedAnnotations.get(sharedBit);
+                        isActual = packedAnnotations.get(actualBit);
+                        isFormal = packedAnnotations.get(formalBit);
+                        isDefault = packedAnnotations.get(defaultBit);
+                        isSealed = packedAnnotations.get(sealedBit);
+                        isFinal = packedAnnotations.get(finalBit);
+                        isAnnotation = packedAnnotations.get(annotationBit);
+                        isAbstract = packedAnnotations.get(abstractBit);
+                    }
                 else
-                    ClassDefinition {
+                    ClassWithConstructors {
                         container = scope;
                         name = getString(json, keyName);
                         unit = scope.pkg.defaultUnit;
@@ -629,7 +736,12 @@ object jsonModelUtil {
             };
         };
 
-        // TODO value parameters
+        if (nonempty parameters
+                =   getArrayOrNull(json, keyParams)?.sequence()) {
+            assert (is ClassWithInitializer declaration);
+            declaration.parameterList
+                =   parseParameterList(declaration, parameters, true);
+        }
 
         return declaration;
     }

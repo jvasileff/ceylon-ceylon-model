@@ -1,6 +1,8 @@
 import com.vasileff.ceylon.model {
     TypeDeclaration,
     Class,
+    ClassWithInitializer,
+    ClassWithConstructors,
     Declaration,
     Value,
     Scope,
@@ -30,6 +32,18 @@ Value toValue(Scope scope)(Value | Value(Scope) lv)
 shared
 Class assertedClass(Declaration? d) {
     assert (is Class d);
+    return d;
+}
+
+shared
+ClassWithInitializer assertedClassWithInitializer(Declaration? d) {
+    assert (is ClassWithInitializer d);
+    return d;
+}
+
+shared
+ClassWithConstructors assertedClassWithConstructors(Declaration? d) {
+    assert (is ClassWithConstructors d);
     return d;
 }
 

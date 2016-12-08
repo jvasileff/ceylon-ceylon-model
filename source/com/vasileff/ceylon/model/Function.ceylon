@@ -9,7 +9,7 @@ class Function(
 
     Type | Type(Scope) typeLG;
 
-    variable [ParameterList+] _parameterLists = [ParameterList.empty];
+    variable [ParameterList+] _parameterLists = [ParameterList()];
 
     variable Type? typeMemo = null;
 

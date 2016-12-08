@@ -19,7 +19,7 @@ class CallableConstructor(
 
     shared Boolean isAbstract;
 
-    variable [ParameterList] _parameterLists = [ParameterList.empty];
+    variable [ParameterList] _parameterLists = [ParameterList()];
 
     shared actual Type extendedType
         =>  extendedTypeMemo else (

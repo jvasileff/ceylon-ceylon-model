@@ -1,11 +1,12 @@
 shared
 class ClassAlias(
-        container, name, extendedTypeLG, parameterLists = [ParameterList.empty],
+        container, name, extendedTypeLG, parameterLists = [ParameterList()],
         isAbstract = false, isActual = false, isDefault = false,
         isDeprecated = false, isFormal = false, isSealed = false,
         isShared = false, qualifier = null, annotations = [],
         unit = container.pkg.defaultUnit)
-        extends Class(extendedTypeLG) {
+        extends Class(extendedTypeLG)
+        satisfies Functional {
 
     Type | Type(Scope) extendedTypeLG;
 

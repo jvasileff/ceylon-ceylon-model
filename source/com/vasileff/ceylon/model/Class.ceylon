@@ -5,8 +5,7 @@ import com.vasileff.ceylon.model.internal {
 shared abstract
 class Class(extendedTypeLG, satisfiedTypesLG = [])
         of ClassDefinition | ClassAlias
-        extends ClassOrInterface()
-        satisfies Functional {
+        extends ClassOrInterface() {
 
     Type | Type(Scope) | Null extendedTypeLG;
     {Type | Type(Scope)*} satisfiedTypesLG;
@@ -75,5 +74,8 @@ class Class(extendedTypeLG, satisfiedTypesLG = [])
 
     shared actual
     String string
-        =>  "class ``partiallyQualifiedNameWithTypeParameters````valueParametersAsString``";
+        =>  if (is Functional self = this)
+            then "class ``partiallyQualifiedNameWithTypeParameters``\
+                  ``self.valueParametersAsString``"
+            else "class ``partiallyQualifiedNameWithTypeParameters``";
 }

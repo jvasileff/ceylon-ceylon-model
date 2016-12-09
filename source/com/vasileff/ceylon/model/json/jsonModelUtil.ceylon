@@ -12,7 +12,6 @@ import com.vasileff.ceylon.model {
     TypeDeclaration,
     covariant,
     contravariant,
-    ClassDefinition,
     ClassWithInitializer,
     ClassWithConstructors,
     Annotation,
@@ -364,7 +363,7 @@ object jsonModelUtil {
             =   TypeAlias {
                     container = scope;
                     name = getString(json, keyName);
-                    extendedTypeLG = typeFromJsonLG(json);
+                    extendedTypeLG = typeFromJsonLG(getObject(json, keyAlias));
                     annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
                     isShared = packedAnnotations.get(sharedBit);
                 };
@@ -455,11 +454,11 @@ object jsonModelUtil {
                     model = m;
                 }
                 else {
-                    switch (type = getString(jsonParameter, "$pt"))
+                    switch (type = getStringOrNull(jsonParameter, "$pt"))
                     case ("f") {
                         model = parseFunction(scope, jsonParameter);
                     }
-                    case ("v") {
+                    case (null | "v") {
                         model = parseValue(scope, jsonParameter)[0];
                     }
                     else {
@@ -736,8 +735,12 @@ object jsonModelUtil {
             };
         };
 
-        if (nonempty parameters
+        if (!constructors exists,
+            nonempty parameters
                 =   getArrayOrNull(json, keyParams)?.sequence()) {
+            // TODO even when constructors exist, the JSON has parameters ("ps"). Does
+            //      the typechecker's model copy the default constructor's parameters
+            //      to the class?
             assert (is ClassWithInitializer declaration);
             declaration.parameterList
                 =   parseParameterList(declaration, parameters, true);

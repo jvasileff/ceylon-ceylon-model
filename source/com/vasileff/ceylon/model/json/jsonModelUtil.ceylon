@@ -382,6 +382,11 @@ object jsonModelUtil {
 
     shared
     Function parseFunction(Scope scope, JsonObject json) {
+
+        // TODO keyFlags: 
+        //      md.setDeclaredVoid((flags & 1) > 0);
+        //      md.setDeferred((flags & 2) > 0); ???
+
         value packedAnnotations
             =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
 
@@ -749,54 +754,62 @@ object jsonModelUtil {
         return declaration;
     }
 
-    void loadToplevel(Package pkg, JsonObject item) {
-        assert (exists metaType = getStringOrNull(item, keyMetatype));
+    shared
+    [] | // TODO remove [] once objects are supported
+    [Declaration] | [Value, Setter] parseToplevelDeclaration
+            (Package pkg, JsonObject item) {
+
+        value metaType = getString(item, keyMetatype);
 
         if (metaType == metatypeClass) {
-            pkg.defaultUnit.addDeclaration(parseClass(pkg, item));
+            return [parseClass(pkg, item)];
         }
         else if (metaType == metatypeInterface) {
-            pkg.defaultUnit.addDeclaration(parseInterface(pkg, item));
+            return [parseInterface(pkg, item)];
         }
         else if (metaType == metatypeMethod) {
-            pkg.defaultUnit.addDeclaration(parseFunction(pkg, item));
+            return [parseFunction(pkg, item)];
+        }
+        else if (metaType == metatypeAlias) {
+            return [parseTypeAlias(pkg, item)];
+        }
+        else if (metaType == metatypeGetter) {
+            // transient value with or without a setter
+            return parseValue(pkg, item);
+        }
+        else if (metaType == metatypeAttribute) {
+            // possibly variable reference value
+            return parseValue(pkg, item);
+        }
+        else if (metaType == metatypeObject) {
+            // TODO objects
+            return [];
         }
 
-        // attribute
-        // getter
-        // object
-        // alias
+        throw AssertionError("Unsupported toplevel meta type '``metaType``'");
     }
 
     shared
-    void loadToplevelDeclarations(Package pkg, JsonObject json) {
-        for (key -> item in json) {
-            if (key.startsWith("$pkg-")) {
-                continue;
-            }
+    {Declaration*} parseToplevelDeclarations(Package pkg, JsonObject json)
+        =>  json.filter((key->item) => !key.startsWith("$pkg-")).flatMap((key->item) {
+                assert (is JsonObject item);
+                return parseToplevelDeclaration(pkg, item);
+            });
 
-            assert (is JsonObject item);
-            loadToplevel(pkg, item);
-        }
-    }
-
-    "Returns `true` if the toplevel declaration was found.
-
-     Note: this method is not idempotent! Multiple calls to this method with the same
-     arguments will result in the package having redundant declarations."
+    "Returns the declaration(s), or [] if the toplevel declaration cannot be found."
     shared
-    Boolean loadToplevelDeclaration(Package pkg, String name, JsonObject packageJson) {
+    [Declaration*] parseToplevelDeclarationWithName(
+            Package pkg, String name, JsonObject packageJson) {
         if (name.startsWith("$pkg-")) {
-            return false;
+            return [];
         }
 
         value item = getObjectOrNull(packageJson, name);
 
         if (!exists item) {
-            return false;
+            return [];
         }
 
-        loadToplevel(pkg, item);
-        return true;
+        return parseToplevelDeclaration(pkg, item);
     }
 }

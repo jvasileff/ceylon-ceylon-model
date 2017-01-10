@@ -366,6 +366,7 @@ object jsonModelUtil {
                     extendedTypeLG = typeFromJsonLG(getObject(json, keyAlias));
                     annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
                     isShared = packedAnnotations.get(sharedBit);
+                    isStatic = packedAnnotations.get(staticBit);
                 };
 
         // For type parameters
@@ -383,12 +384,11 @@ object jsonModelUtil {
     shared
     Function parseFunction(Scope scope, JsonObject json) {
 
-        // TODO keyFlags: 
-        //      md.setDeclaredVoid((flags & 1) > 0);
-        //      md.setDeferred((flags & 2) > 0); ???
-
         value packedAnnotations
             =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
+
+        value flags
+            =   getIntegerOrNull(json, keyFlags) else 0;
 
         value declaration
             =   Function {
@@ -396,11 +396,15 @@ object jsonModelUtil {
                     name = getString(json, keyName);
                     typeLG = typeFromJsonLG(getObject(json, keyType));
                     annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
+                    // what is "md.setDeferred((flags & 2) > 0);" in JsonPackage???
+                    isDeclaredVoid = !flags.and(1).zero;
                     isShared = packedAnnotations.get(sharedBit);
                     isActual = packedAnnotations.get(actualBit);
                     isFormal = packedAnnotations.get(formalBit);
                     isDefault = packedAnnotations.get(defaultBit);
                     isAnnotation = packedAnnotations.get(annotationBit);
+                    isStatic = packedAnnotations.get(staticBit);
+                    isDynamic = json[keyDynamic] exists;
                 };
 
         // value ParameterLists      
@@ -494,10 +498,12 @@ object jsonModelUtil {
                     isActual = packedAnnotations.get(actualBit);
                     isFormal = packedAnnotations.get(formalBit);
                     isDefault = packedAnnotations.get(defaultBit);
+                    isStatic = packedAnnotations.get(staticBit);
+                    isLate = packedAnnotations.get(lateBit);
+                    isVariable = packedAnnotations.get(variableBit);
+                    isDynamic = json[keyDynamic] exists;
+                    isTransient = getString(json, keyMetatype) == metatypeGetter;
                     // isDeprecated
-                    // isStatic
-                    // TODO add variable flag
-                    // TODO add transient flag?
                 };
 
         declaration.addMembers {
@@ -516,8 +522,8 @@ object jsonModelUtil {
                         declaration;
                         // TODO are these supposed to be independent of the getter? If
                         //      not, remove them from Setter's parameter list.
-                        declaration.isActual;
-                        declaration.isDeprecated;
+                        isActual = declaration.isActual;
+                        isDeprecated = declaration.isDeprecated;
                         annotations
                             =   toAnnotations(getObjectOrEmpty(json, keyAnnotations));
                     };
@@ -543,23 +549,26 @@ object jsonModelUtil {
         value packedAnnotations
             =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
 
-        if (exists aliasJson = getObjectOrNull(json, keyAlias)) {
-            return InterfaceAlias {
-                container = scope;
-                unit = scope.pkg.defaultUnit;
-                name = getString(json, keyName);
-                extendedTypeLG = typeFromJsonLG(getObject(json, keyExtendedType));
-                annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
-                isShared = packedAnnotations.get(sharedBit);
-                isSealed = packedAnnotations.get(sealedBit);
-            };
-        }
-
         value declaration
-            =   InterfaceDefinition {
+            =   if (exists aliasJson = getObjectOrNull(json, keyAlias))
+                then InterfaceAlias {
                     container = scope;
                     unit = scope.pkg.defaultUnit;
                     name = getString(json, keyName);
+                    extendedTypeLG = typeFromJsonLG(getObject(json, keyExtendedType));
+                    annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
+                    isShared = packedAnnotations.get(sharedBit);
+                    isSealed = packedAnnotations.get(sealedBit);
+                }
+                else InterfaceDefinition {
+                    container = scope;
+                    unit = scope.pkg.defaultUnit;
+                    name = getString(json, keyName);
+                    caseTypesLG
+                        =   getArrayOrEmpty(json, keyCases).map((s) {
+                                assert (is JsonObject s);
+                                return typeFromJsonLG(s);
+                            });
                     satisfiedTypesLG
                         =   getArrayOrEmpty(json, keySatisfies).map((s) {
                                 assert (is JsonObject s);
@@ -573,6 +582,8 @@ object jsonModelUtil {
                     isSealed = packedAnnotations.get(sealedBit);
                     isFinal = packedAnnotations.get(finalBit);
                     isAnnotation = packedAnnotations.get(annotationBit);
+                    isStatic = packedAnnotations.get(staticBit);
+                    isDynamic = json[keyDynamic] exists;
                 };
 
         declaration.addMembers {
@@ -607,6 +618,7 @@ object jsonModelUtil {
                         isShared = packedAnnotations.get(sharedBit);
                         isSealed = packedAnnotations.get(sealedBit);
                         isAbstract = packedAnnotations.get(abstractBit);
+                        isDynamic = json[keyDynamic] exists;
                     }
                 else
                     ValueConstructor {
@@ -618,6 +630,7 @@ object jsonModelUtil {
                         };
                         isShared = packedAnnotations.get(sharedBit);
                         isSealed = packedAnnotations.get(sealedBit);
+                        isDynamic = json[keyDynamic] exists;
                     };
 
         // value ParameterLists     
@@ -676,6 +689,8 @@ object jsonModelUtil {
                         isDefault = packedAnnotations.get(defaultBit);
                         isSealed = packedAnnotations.get(sealedBit);
                         isAbstract = packedAnnotations.get(abstractBit);
+                        isStatic = packedAnnotations.get(staticBit);
+                        isDynamic = json[keyDynamic] exists;
                     }
                 else if (!constructors exists) then
                     ClassWithInitializer {
@@ -687,30 +702,8 @@ object jsonModelUtil {
                                     assert (is JsonObject s);
                                     return typeFromJsonLG(s);
                                 });
-                        extendedTypeLG
-                            =   if (is JsonObject et = json[keyExtendedType])
-                                then typeFromJsonLG(et)
-                                else null;
-                        annotations
-                            =   toAnnotations {
-                                    getObjectOrEmpty(json, keyAnnotations);
-                                };
-                        isShared = packedAnnotations.get(sharedBit);
-                        isActual = packedAnnotations.get(actualBit);
-                        isFormal = packedAnnotations.get(formalBit);
-                        isDefault = packedAnnotations.get(defaultBit);
-                        isSealed = packedAnnotations.get(sealedBit);
-                        isFinal = packedAnnotations.get(finalBit);
-                        isAnnotation = packedAnnotations.get(annotationBit);
-                        isAbstract = packedAnnotations.get(abstractBit);
-                    }
-                else
-                    ClassWithConstructors {
-                        container = scope;
-                        name = getString(json, keyName);
-                        unit = scope.pkg.defaultUnit;
-                        satisfiedTypesLG
-                            =   getArrayOrEmpty(json, keySatisfies).map((s) {
+                        caseTypesLG
+                            =   getArrayOrEmpty(json, keyCases).map((s) {
                                     assert (is JsonObject s);
                                     return typeFromJsonLG(s);
                                 });
@@ -730,6 +723,42 @@ object jsonModelUtil {
                         isFinal = packedAnnotations.get(finalBit);
                         isAnnotation = packedAnnotations.get(annotationBit);
                         isAbstract = packedAnnotations.get(abstractBit);
+                        isStatic = packedAnnotations.get(staticBit);
+                        isDynamic = json[keyDynamic] exists;
+                    }
+                else
+                    ClassWithConstructors {
+                        container = scope;
+                        name = getString(json, keyName);
+                        unit = scope.pkg.defaultUnit;
+                        satisfiedTypesLG
+                            =   getArrayOrEmpty(json, keySatisfies).map((s) {
+                                    assert (is JsonObject s);
+                                    return typeFromJsonLG(s);
+                                });
+                        caseTypesLG
+                            =   getArrayOrEmpty(json, keyCases).map((s) {
+                                    assert (is JsonObject s);
+                                    return typeFromJsonLG(s);
+                                });
+                        extendedTypeLG
+                            =   if (is JsonObject et = json[keyExtendedType])
+                                then typeFromJsonLG(et)
+                                else null;
+                        annotations
+                            =   toAnnotations {
+                                    getObjectOrEmpty(json, keyAnnotations);
+                                };
+                        isShared = packedAnnotations.get(sharedBit);
+                        isActual = packedAnnotations.get(actualBit);
+                        isFormal = packedAnnotations.get(formalBit);
+                        isDefault = packedAnnotations.get(defaultBit);
+                        isSealed = packedAnnotations.get(sealedBit);
+                        isFinal = packedAnnotations.get(finalBit);
+                        isAnnotation = packedAnnotations.get(annotationBit);
+                        isAbstract = packedAnnotations.get(abstractBit);
+                        isStatic = packedAnnotations.get(staticBit);
+                        isDynamic = json[keyDynamic] exists;
                     };
 
         declaration.addMembers {

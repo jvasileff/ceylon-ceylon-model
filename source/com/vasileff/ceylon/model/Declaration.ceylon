@@ -54,6 +54,7 @@ class Declaration() of TypeDeclaration | TypedDeclaration
     shared formal Boolean isFormal;
     shared formal Boolean isShared;
     shared formal Boolean isStatic;
+    shared formal Boolean isDynamic;
 
     "`true` if this is an anonymous class or anything with a rubbish system-generated
      name."

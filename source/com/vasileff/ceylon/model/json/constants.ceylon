@@ -1,3 +1,4 @@
+shared String keyAbstract      = "abstract";
 shared String keyClasses       = "$c";
 shared String keyInterfaces    = "$i";
 shared String keyObjects       = "$o";
@@ -31,6 +32,7 @@ shared String keyConstructors  = "$cn";
 shared String keyFlags         = "$ff";
 shared String keySetter        = "$set";
 shared String keyAlias         = "$alias";
+shared String keyVariable      = "var";
 
 shared String keyDefault       = "def";
 shared String keySequenced     = "seq";

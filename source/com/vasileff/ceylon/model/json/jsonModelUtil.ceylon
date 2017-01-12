@@ -168,12 +168,12 @@ object jsonModelUtil {
         //      class? The constructor is less useful, since we wouldn't be able to do
         //      things like annotations.contains("ceylon.language::Shared").
         =>  json.collect((name->args) {
-                assert (is JsonArray args); 
+                assert (is JsonArray args);
                 return Annotation {
                     name;
                     args.collect((arg) {
                         assert (is String arg);
-                        return arg; 
+                        return arg;
                     });
                 };
             });
@@ -262,7 +262,7 @@ object jsonModelUtil {
                 // Classes
                 getObjectOrEmpty(json, keyClasses).items.map((classJson) {
                     assert (is JsonObject classJson);
-                    return parseClass(scope, classJson);                
+                    return parseClass(scope, classJson);
                 }),
                 // Constructors
                 if (is Class scope)
@@ -275,7 +275,7 @@ object jsonModelUtil {
                 // Interfaces
                 getObjectOrEmpty(json, keyInterfaces).items.map((interfaceJson) {
                     assert (is JsonObject interfaceJson);
-                    return parseInterface(scope, interfaceJson);                
+                    return parseInterface(scope, interfaceJson);
                 }),
                 // Functions
                 getObjectOrEmpty(json, keyMethods).items.map((methodJson) {
@@ -301,7 +301,7 @@ object jsonModelUtil {
                 // Objects
                 getObjectOrEmpty(json, keyObjects).items.flatMap((classJson) {
                     assert (is JsonObject classJson);
-                    return parseObject(scope, classJson);                
+                    return parseObject(scope, classJson);
                 })
             };
 
@@ -410,7 +410,7 @@ object jsonModelUtil {
                     isDynamic = json[keyDynamic] exists;
                 };
 
-        // value ParameterLists      
+        // value ParameterLists
         if (nonempty parameterListsJson
                 =   getArrayOrNull(json, keyParams)?.sequence()) {
 
@@ -636,7 +636,7 @@ object jsonModelUtil {
                         isDynamic = json[keyDynamic] exists;
                     };
 
-        // value ParameterLists     
+        // value ParameterLists
         if (nonempty parameters) {
             assert (is CallableConstructor declaration);
             value parameterList = parseParameterList(declaration, parameters, true);
@@ -712,9 +712,9 @@ object jsonModelUtil {
 
         value constructors
             =   getObjectOrNull(json, keyConstructors);
- 
+
         value declaration
-            =   if (isAlias) then           
+            =   if (isAlias) then
                     ClassAlias {
                         container = scope;
                         name = getString(json, keyName);

@@ -297,9 +297,12 @@ object jsonModelUtil {
                         return valueJson;
                     })
                     .filter((valueJson) => eq(metatypeAlias, valueJson[keyMetatype]))
-                    .map((valueJson) => parseTypeAlias(scope, valueJson))
-                // TODO objects
-
+                    .map((valueJson) => parseTypeAlias(scope, valueJson)),
+                // Objects
+                getObjectOrEmpty(json, keyObjects).items.flatMap((classJson) {
+                    assert (is JsonObject classJson);
+                    return parseObject(scope, classJson);                
+                })
             };
 
     shared
@@ -658,6 +661,47 @@ object jsonModelUtil {
     }
 
     shared
+    [Value, Class] parseObject(Scope scope, JsonObject json) {
+        // Note: only the value gets annotations, but the class should be marked
+        // shared, etc. as necessary based on the value's annotations. Note that when
+        // compiling code, the typechecker does apply annotations to both the class and
+        // the value, but this is probably due to the workings of the typechecker rather
+        // than an intentional behavior. In fact, the annonymous class, per the
+        // typechecker, even gets annotations that are constrained to Values.
+        //
+        // Note2: the class gets added to the container, despite JS only adding it to the
+        // unit in JsonPackage. On the JVM, `package`.members<...> lists both
+        // "class simple::obj, value simple::obj" and the typechecker adds them both
+        // as members: "[class obj, value obj => obj]"
+
+        value packedAnnotations
+            =   getIntegerOrNull(json, keyPackedAnnotations) else 0;
+
+        value c
+            =   parseClass(scope, json);
+
+        value v
+            =   Value {
+                    container = scope;
+                    name = getString(json, keyName);
+                    typeLG = (scope) => c.type;
+                    annotations = toAnnotations(getObjectOrEmpty(json, keyAnnotations));
+                    isShared = packedAnnotations.get(sharedBit);
+                    isActual = packedAnnotations.get(actualBit);
+                    isFormal = packedAnnotations.get(formalBit);
+                    isDefault = packedAnnotations.get(defaultBit);
+                    isStatic = packedAnnotations.get(staticBit);
+                    isLate = packedAnnotations.get(lateBit);
+                    isVariable = packedAnnotations.get(variableBit);
+                    isDynamic = json[keyDynamic] exists;
+                    isTransient = getString(json, keyMetatype) == metatypeGetter;
+                    // isDeprecated
+                };
+
+        return [v, c];
+    }
+
+    shared
     Class parseClass(Scope scope, JsonObject json) {
 
         value packedAnnotations
@@ -725,6 +769,7 @@ object jsonModelUtil {
                         isAbstract = packedAnnotations.get(abstractBit);
                         isStatic = packedAnnotations.get(staticBit);
                         isDynamic = json[keyDynamic] exists;
+                        isAnonymous = getString(json, keyMetatype) == metatypeObject;
                     }
                 else
                     ClassWithConstructors {
@@ -784,8 +829,7 @@ object jsonModelUtil {
     }
 
     shared
-    [] | // TODO remove [] once objects are supported
-    [Declaration] | [Value, Setter] parseToplevelDeclaration
+    [Declaration] | [Value, Setter] | [Value, Class] parseToplevelDeclaration
             (Package pkg, JsonObject item) {
 
         value metaType = getString(item, keyMetatype);
@@ -811,8 +855,7 @@ object jsonModelUtil {
             return parseValue(pkg, item);
         }
         else if (metaType == metatypeObject) {
-            // TODO objects
-            return [];
+            return parseObject(pkg, item);
         }
 
         throw AssertionError("Unsupported toplevel meta type '``metaType``'");

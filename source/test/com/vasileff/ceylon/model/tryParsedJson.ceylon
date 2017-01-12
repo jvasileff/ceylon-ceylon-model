@@ -1,3 +1,7 @@
+import com.vasileff.ceylon.model {
+    Value
+}
+
 shared
 void tryParsedJson() {
 
@@ -15,4 +19,9 @@ void tryParsedJson() {
             .getDirectMember("Iterable")?.members else []) {
         print(member);
     }
+
+    assert (is Value t = ceylonLanguagePackage.getDirectMember("true"));
+    print(t);
+    print(t.type);
+    print(t.type.declaration);
 }

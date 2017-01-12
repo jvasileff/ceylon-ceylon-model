@@ -28,4 +28,3 @@ shared void printSomeTypes() {
     print(parseType("String(*[String])", scope));
     print(parseType("String(*[])", scope));
 }
-

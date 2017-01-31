@@ -354,6 +354,48 @@ class Unit(pkg) {
         return rest;
     }
 
+    shared
+    Type getCallableType(Reference reference, Type returnType = reference.type) {
+        value declaration = reference.declaration;
+        if (!is Functional declaration) {
+            return returnType;
+        }
+        variable value result = returnType;
+        for (parameterList in declaration.parameterLists.reversed) {
+            value paramListType
+                =   getTupleType {
+                        elementTypes
+                            =   parameterList.parameters.collect((parameter) {
+                                    value np = reference.getTypedParameter(parameter);
+                                    value npt = np.type;
+                                    if (np.declaration is Functional) {
+                                        return getCallableType(np, npt);
+                                    }
+                                    else if (parameter.isSequenced) {
+                                        assert (exists it = getIteratedType(npt));
+                                        return it;
+                                    }
+                                    else {
+                                        return npt;
+                                    }
+                                });
+
+                        variadic
+                            =   parameterList.parameters.last?.isSequenced else false;
+
+                        firstDefaulted
+                            =   parameterList.parameters.count(
+                                        not(Parameter.isDefaulted));
+
+                        atLeastOne
+                            =   parameterList.parameters.last?.atLeastOne else false;
+                    };
+
+            result = callableDeclaration.appliedType(null, [result, paramListType]);
+        }
+        return result;
+    }
+
     "Returns the intersection of [[type]] and `Object`."
     shared
     Type getDefiniteType(Type type)

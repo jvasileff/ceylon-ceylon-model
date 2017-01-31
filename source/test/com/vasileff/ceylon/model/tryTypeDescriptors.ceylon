@@ -11,17 +11,17 @@ import com.vasileff.ceylon.model.json {
     LazyJsonModule
 }
 import com.vasileff.ceylon.model.runtime {
-    TypeDescriptor
+    LazyTypeDescriptor
 }
 
 shared
-void tryTypeDescriptors() {
+void tryLazyTypeDescriptors() {
 
     assert (exists unit
         =   modCeylonInteropDart.findDirectPackage("ceylon.interop.dart")?.defaultUnit);
 
     value td1
-        =   TypeDescriptor {
+        =   LazyTypeDescriptor {
                 modCeylonInteropDart;
                 "ceylon.language::Entry<ceylon.language::String,ceylon.language::String>";
                 [];
@@ -33,7 +33,7 @@ void tryTypeDescriptors() {
     print(td1.type);
 
     value td2
-        =   TypeDescriptor {
+        =   LazyTypeDescriptor {
                 modCeylonInteropDart;
                 "ceylon.language::Entry<ceylon.language::String,ceylon.language::String>";
                 [];
@@ -45,7 +45,7 @@ void tryTypeDescriptors() {
     print(td2.type);
 
     value td3
-        =   TypeDescriptor {
+        =   LazyTypeDescriptor {
                 modCeylonInteropDart;
                 "ceylon.language::Entry<ceylon.language::String,ceylon.language::Float>";
                 [];
@@ -57,21 +57,21 @@ void tryTypeDescriptors() {
     print(td3.type);
 
     value tdString
-        =   TypeDescriptor {
+        =   LazyTypeDescriptor {
                 modCeylonInteropDart;
                 "ceylon.language::String";
                 [];
             };
 
     value tdFloat
-        =   TypeDescriptor {
+        =   LazyTypeDescriptor {
                 modCeylonInteropDart;
                 "ceylon.language::Float";
                 [];
             };
 
     value tdEntryWithSubstitutions1
-        =   TypeDescriptor {
+        =   LazyTypeDescriptor {
                 modCeylonInteropDart;
                 "ceylon.language::Entry<^,^>";
                 [tdString, tdFloat];
@@ -83,21 +83,21 @@ void tryTypeDescriptors() {
     print(tdEntryWithSubstitutions1.type);
 
     value tdString2
-        =   TypeDescriptor {
+        =   LazyTypeDescriptor {
                 modCeylonInteropDart;
                 "ceylon.language::String";
                 [];
             };
 
     value tdFloat2
-        =   TypeDescriptor {
+        =   LazyTypeDescriptor {
                 modCeylonInteropDart;
                 "ceylon.language::Float";
                 [];
             };
 
     value tdEntryWithSubstitutions2
-        =   TypeDescriptor {
+        =   LazyTypeDescriptor {
                 modCeylonInteropDart;
                 "^->^";
                 [tdString2, tdFloat2];
@@ -110,12 +110,12 @@ void tryTypeDescriptors() {
 
     value myModule = modCeylonInteropDart;
 
-    value argT = TypeDescriptor(myModule, "ceylon.language::Float?");
-    value argU = TypeDescriptor(myModule, "ceylon.language::Boolean");
+    value argT = LazyTypeDescriptor(myModule, "ceylon.language::Float?");
+    value argU = LazyTypeDescriptor(myModule, "ceylon.language::Boolean");
 
     print("---------------");
     print {
-        TypeDescriptor {
+        LazyTypeDescriptor {
             myModule;
             "<ceylon.language::String -> ^> | ^";
             [argT, argU];

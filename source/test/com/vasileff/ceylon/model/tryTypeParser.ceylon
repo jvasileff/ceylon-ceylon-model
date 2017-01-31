@@ -28,3 +28,37 @@ shared void printSomeTypes() {
     print(parseType("String(*[String])", scope));
     print(parseType("String(*[])", scope));
 }
+
+shared void printSomeTuples() {
+    value languageModule = loadLanguageModule();
+    value scope = languageModule.ceylonLanguagePackage;
+
+    value stringType = parseType("String", scope);
+    value characterType = parseType("Character", scope);
+    value identifiableType = parseType("Identifiable", scope);
+
+    value unit = scope.unit;
+    printAll {
+        separator = "\n";
+        unit.getTupleType {
+            elementTypes = [stringType, stringType, characterType];
+            variadic = false;
+            atLeastOne = false;
+            firstDefaulted = null;
+            // FIXME tuple type printer bug
+            // https://github.com/jvasileff/ceylon-ceylon-model/issues/3
+        }.format(true),
+        unit.getTupleType {
+            elementTypes = [characterType, stringType, stringType];
+            variadic = false;
+            atLeastOne = false;
+            firstDefaulted = null;
+        }.format(true),
+        unit.getTupleType {
+            elementTypes = [characterType, stringType, stringType];
+            variadic = true;
+            atLeastOne = false;
+            firstDefaulted = 1;
+        }.format(true)
+    };
+}

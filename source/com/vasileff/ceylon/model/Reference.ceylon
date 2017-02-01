@@ -27,9 +27,9 @@ class Reference() of Type | TypedReference {
     Type type;
 
     "The type or callable type of the referenced thing:
-      
+
         - for a value, this is its type,
-        - for a function, class, or constructor, this is its 
+        - for a function, class, or constructor, this is its
           callable type.
 
      This type encodes all the types you could assemble

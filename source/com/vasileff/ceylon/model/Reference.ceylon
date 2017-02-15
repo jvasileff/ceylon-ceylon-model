@@ -36,11 +36,12 @@ class Reference() of Type | TypedReference {
      using `type` and `getTypedParameter(Parameter)`"
     shared
     Type fullType
-        =>  getFullType();
-
+        =>  getFullTypeFor();
 
     shared
-    Type getFullType(
+    // Name with "For" to workaround JVM bug
+    // https://github.com/ceylon/ceylon/issues/6921
+    Type getFullTypeFor(
             "the return type of this member for a `?.` or `*.` expression, i.e.
              `T?`, `[T*]`, or `[T+]`"
             Type wrappedType = type)

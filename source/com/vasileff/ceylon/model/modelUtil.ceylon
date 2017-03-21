@@ -141,6 +141,7 @@ void addToIntersection(MutableSet<Type> types, Type that, Unit unit) {
                     that.declaration; that; existing; unit;
                 };
                 if (exists pi) {
+                    // FIXME this needs !pi.involvesUnknowns()
                     types.remove(existing);
                     types.add(pi);
                 }

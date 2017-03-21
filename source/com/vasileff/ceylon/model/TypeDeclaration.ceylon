@@ -37,11 +37,11 @@ class TypeDeclaration()
                 if (is TypeParameter member)
                   member };
 
-     "The type of the declaration as seen from within the body of the declaration itself.
+    "The type of the declaration as seen from within the body of the declaration itself.
 
-      Note that for certain special types which we happen to know don't have type
-      arguments, we use this as a convenience method to quickly get a produced type for
-      use outside the body of the declaration, but this is not really correct!"
+     Note that for certain special types which we happen to know don't have type
+     arguments, we use this as a convenience method to quickly get a produced type for
+     use outside the body of the declaration, but this is not really correct!"
     shared default
     Type type
         =>  createType {

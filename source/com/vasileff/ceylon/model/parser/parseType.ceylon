@@ -13,16 +13,29 @@ import com.vasileff.ceylon.model {
 
 shared
 Type parseType(String input, Scope scope, {Type*} substitutions = []) {
+    variable value nextToken = null of Token | Finished | Null;
 
-    Iterator<Type> substitutionIterator = substitutions.iterator();
+    value substitutionIterator = substitutions.iterator();
 
-    variable List<Token> tokens
-        =   TokenStream(input)
-                .filter((token) => !token is IgnoredToken)
-                .sequence();
+    value tokenIterator = TokenStream(input)
+            .filter((token) => !token is IgnoredToken)
+            .iterator();
 
-    void consume(Integer count = 1) {
-        tokens = tokens.sublistFrom(count);
+    void consume() {
+        if (nextToken exists) {
+            nextToken = null;
+        }
+        else {
+            tokenIterator.next();
+        }
+    }
+
+    Token? peek() {
+        value token = nextToken else (nextToken = tokenIterator.next());
+        if (is Finished token) {
+            return null;
+        }
+        return token;
     }
 
     Token check(Token? token, String? type) {
@@ -51,15 +64,24 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
     }
 
     Token expectAny(String+ types) {
-        value token = checkAny(tokens.first, *types);
+        value token = checkAny(peek(), *types);
         consume();
         return token;
     }
 
     Token expect(String? type) {
-        value token = check(tokens.first, type);
+        value token = check(peek(), type);
         consume();
         return token;
+    }
+
+    Token? match(String type) {
+        value token = peek();
+        if (exists token, token.type == type) {
+            consume();
+            return token;
+        }
+        return null;
     }
 
     TypeDeclaration? lookup(Package | Type | Null qualifier, String name)
@@ -72,15 +94,13 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             else null;
 
     """
-       Type: UnionType | EntryType
-       EntryType: UnionType "->" UnionType
+       Type      : UnionType | EntryType
     """
     Type parseType() {
         """
-           UnionType: IntersectionType ("|" IntersectionType)*
+           UnionType : IntersectionType ("|" IntersectionType)*\
         """
         Type parseUnionType() {
-
             """
                GroupedType: "<" Type ">"
             """
@@ -92,12 +112,12 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             }
 
             """
-               TypeArgument: Variance Type
-               Variance: ("out" | "in")?
+               TypeArgument : Variance Type
+               Variance     : ("out" | "in")?
             """
             [Variance?, Type] parseTypeArgument() {
                 Variance? variance
-                    =   switch (token = tokens.first)
+                    =   switch (token = peek())
                         case (is InKeyword) contravariant
                         case (is OutKeyword) covariant
                         else null;
@@ -110,7 +130,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             }
 
             """
-               TypeArguments: "<" ((TypeArgument ",")* TypeArgument)? ">"
+               TypeArguments : "<" ((TypeArgument ",")* TypeArgument)? ">"
             """
             [[Variance?, Type]*] parseTypeArguments() {
                 expect("SmallerOp");
@@ -118,10 +138,9 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                 variable {[Variance?, Type]*} arguments = [];
                 while (true) {
                     arguments = arguments.follow(parseTypeArgument());
-                    if (!tokens.first is Comma) {
+                    if (!match("Comma") exists) {
                         break;
                     }
-                    consume();
                 }
 
                 expect("LargerOp");
@@ -129,24 +148,23 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             }
 
             """
-               TypeNameWithArguments: TypeName TypeArguments?
+               TypeNameWithArguments : TypeName TypeArguments?
             """
             String parseTypeName() {
                 value token = expect("UIdentifier");
-                assert (is UIdentifier token);
-                return token.identifier;
+                return token.text;
             }
 
             """
-               TypeNameWithArguments: TypeName TypeArguments?
+               TypeNameWithArguments : TypeName TypeArguments?
             """
-            Type parseTypeNameWithArguments(Package | Type | Null qualifier) {
+            Type parseTypeNameWithArguments(Package | Type | Null qualifier = null) {
                 value name = parseTypeName();
 
                 if (exists declaration = lookup(qualifier, name)) {
 
                     value typeArguments
-                        =   if (tokens.first is SmallerOp)
+                        =   if (peek() is SmallerOp)
                             then parseTypeArguments()
                             else [];
 
@@ -185,58 +203,41 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             }
 
             """
-               PackageQualifier: "package" "."
+               PackageQualifier : ("package" ".")
+                                  | ("$" | "."? LIdentifier) ("." LIdentifier)* "::"
             """
-            Package? parsePackageQualifier() {
-                // FIXME cleanup; check before consuming.
-                // FIXME detect "package" and return unit.package.
-                //       also document lident (. lident)* `::`
-                //       and '$' and '.'
+            Package parsePackageQualifier() {
                 value packageName = StringBuilder();
 
-                switch (token = tokens.first)
+                value token = expectAny("PackageKeyword", "DollarSign",
+                                        "MemberOp", "LIdentifier");
+
+                switch (token)
+                case (is PackageKeyword) {
+                    expect("MemberOp");
+                    return scope.pkg;
+                }
                 case (is DollarSign) {
                     // '$' is a shortcut for "ceylon.language"
-                    consume();
-                    if (tokens.first is MemberOp) {
-                        consume();
-                        assert (is LIdentifier identifer = expect("LIdentifier"));
-                        packageName.append("ceylon.language.");
-                        packageName.append(identifer.identifier);
-                    }
-                    else {
-                        expect("DoubleColon");
-                        return scope.unit.ceylonLanguagePackage;
-                    }
+                    packageName.append("ceylon.language");
                 }
                 case (is MemberOp) {
                     // '.' is a shortcut for the scope's package
-                    consume();
-                    if (is LIdentifier identifier = tokens.first) {
-                        consume();
-                        packageName.append(scope.pkg.qualifiedName);
+                    packageName.append(scope.pkg.qualifiedName);
+                    if (exists identifier = match("LIdentifier")) {
                         packageName.append(".");
-                        packageName.append(identifier.identifier);
+                        packageName.append(identifier.text);
                     }
-                    else {
-                        expect("DoubleColon");
-                        return scope.mod.unit.pkg;
-                    }
-                }
-                case (is LIdentifier) {
-                    consume();
-                    packageName.append(token.identifier);
                 }
                 else {
-                    return null;
+                    assert (is LIdentifier token);
+                    packageName.append(token.text);
                 }
 
-                while (tokens.first is MemberOp) {
-                    consume();
+                while (match("MemberOp") exists) {
                     packageName.append(".");
                     value namePart = expect("LIdentifier");
-                    assert (is LIdentifier namePart);
-                    packageName.append(namePart.identifier);
+                    packageName.append(namePart.text);
                 }
 
                 expect("DoubleColon");
@@ -250,36 +251,34 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             }
 
             """
-               BaseType: PackageQualifier? TypeNameWithArguments | GroupedType
-               TypeNameWithArguments: TypeName TypeArguments?
-               PackageQualifier: "package" "."
-               GroupedType: "<" Type ">"
+               BaseType : GroupedType | PackageQualifier? TypeNameWithArguments
             """
-            Type parseBaseType()
-                =>  if (tokens.first is SmallerOp) then
-                        parseGroupedType()
-                    else
-                        parseTypeNameWithArguments {
-                            parsePackageQualifier();
-                        };
+            Type parseBaseType() {
+                return switch (token = peek())
+                case (is LargerOp)
+                    parseGroupedType()
+                case (is PackageKeyword | DollarSign | MemberOp | LIdentifier)
+                    parseTypeNameWithArguments(parsePackageQualifier())
+                else
+                    parseTypeNameWithArguments();
+            }
 
             """
                QualifiedType: BaseType ("." TypeNameWithArguments)*
             """
             Type parseQualifiedType() {
                 variable value type = parseBaseType();
-                while (tokens.first is MemberOp) {
-                    consume();
+                while (match("MemberOp") exists) {
                     type = parseTypeNameWithArguments(type);
                 }
                 return type;
             }
 
             """
-               TypeList: (DefaultedType ",")* (DefaultedType | VariadicType)
+               TypeList      : (DefaultedType ",")* (DefaultedType | VariadicType)
 
-               DefaultedType: Type "="?
-               VariadicType: UnionType ("*" | "+")
+               DefaultedType : Type "="?
+               VariadicType  : UnionType ("*" | "+")
             """
             Type parseTypeList() {
                 // TODO for now, using parseType, so a variadic like 'String->String*'
@@ -291,27 +290,23 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
 
                 variable {Type*} types = [parseType()];
 
-                if (tokens.first is Specify ) {
-                    consume();
+                if (match("Specify") exists) {
                     defaulted++;
                 }
 
-                while (tokens.first is Comma) {
-                    consume();
+                while (match("Comma") exists) {
                     types = types.follow(parseType());
-                    if (tokens.first is Specify ) {
-                        consume();
+                    if (match("Specify") exists) {
                         defaulted++;
                     }
-                    else if (defaulted.positive && !tokens.first is ProductOp) {
-                        // TODO better location info
+                    else if (defaulted.positive && !peek() is ProductOp) {
                         throw Exception(
                             "Non-defaulted argument after defaulted argument");
                     }
                 }
 
                 ProductOp | SumOp | Null variadic;
-                if (is ProductOp | SumOp symbol = tokens.first) {
+                if (is ProductOp | SumOp symbol = peek()) {
                     consume();
                     variadic = symbol;
                 }
@@ -363,135 +358,116 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             }
 
             """
-               TupleType: "[" TypeList "]" | PrimaryType "[" DecimalLiteral "]"
-
-               This method handles the first. The second is handled by
-               parseSequence().
+               TupleType : "[" TypeList? "]"
             """
             Type parseTupleType() {
                 expect("LBracket");
+                if (match("RBracket") exists) {
+                    return scope.unit.emptyDeclaration.type;
+                }
                 value result = parseTypeList();
                 expect("RBracket");
                 return result;
             }
 
             """
-               IterableType: "{" UnionType ("*"|"+") "}"
+               IterableType : "{" UnionType ("*"|"+") "}"
             """
             Type parseIterableType() {
                 expect("LBrace");
                 value type = parseUnionType();
-                value absent = switch(_ = expectAny("ProductOp", "SumOp"))
-                               case (is ProductOp) scope.unit.nullDeclaration.type
-                               else scope.unit.nothingDeclaration.type;
+                value absent
+                    =   switch(_ = expectAny("ProductOp", "SumOp"))
+                        case (is ProductOp) scope.unit.nullDeclaration.type
+                        else scope.unit.nothingDeclaration.type;
                 expect("RBrace");
-                return scope.unit.iterableDeclaration.appliedType(null, [type, absent]);
+                return scope.unit.iterableDeclaration.appliedType(
+                        null, [type, absent]);
             }
 
             """
-               AtomicType: QualifiedType | EmptyType | TupleType | IterableType
+               Substitution : "^"
             """
-            Type parseAtomicType() {
-                switch (token = tokens.first)
-                case (is LBracket) { // empty or tuple
-                    if (tokens[1] is RBracket) {
-                        consume(2);
-                        return scope.unit.emptyDeclaration.type;
-                    }
-                    else {
-                        return parseTupleType();
-                    }
-                }
-                case (is LBrace) {
-                    return parseIterableType();
-                }
-                case (is Caret) {
-                    consume();
-                    assert (is Type t = substitutionIterator.next());
-                    return t;
-                }
-                else {
-                    return parseQualifiedType();
-                }
+            Type parseSubstitution() {
+                expect("Caret");
+                assert (is Type t = substitutionIterator.next());
+                return t;
             }
 
             """
-               SequenceType: PrimaryType "[" "]"
-
-               This method also handles the second part of:
-
-               TupleType: "[" TypeList "]" | PrimaryType "[" DecimalLiteral "]"
+               AtomicType : QualifiedType | TupleType | IterableType | Substitution
             """
-            Type parseSequenceType(Type primaryType) {
-                expect("LBracket");
-                if (is DecimalLiteral sizeToken = tokens.first) {
-                    // TupleType[123]
-                    assert (exists size = parseInteger(sizeToken.text));
-                    if (!size.positive) {
-                        throw Exception("Tuple size must be positive");
-                    }
-                    consume();
-                    expect("RBracket");
-                    variable value type
-                        =   scope.unit.tupleDeclaration.appliedType {
-                                null;
-                                [primaryType, primaryType,
-                                 scope.unit.emptyDeclaration.type];
-                            };
-                    for (_ in 0:size-1) {
-                        type
+            Type parseAtomicType()
+                =>  switch (_ = peek())
+                    case (is LBracket) parseTupleType()
+                    case (is LBrace) parseIterableType()
+                    case (is Caret) parseSubstitution()
+                    else parseQualifiedType();
+
+            """
+               TypeSuffix : ( OptionalSuffix
+                            | SequenceSuffix
+                            | TupleLengthSuffix
+                            | ParameterListSuffix )?
+            """
+            Type parseTypeSuffix(Type primaryType) {
+                """
+                   OptionalSuffix : "?" TypeSuffix
+                """
+                Type parseOptionalSuffix(Type primaryType) {
+                    expect("QuestionMark");
+                    return parseTypeSuffix(union(
+                        [primaryType, scope.unit.nullDeclaration.type],
+                        scope.unit
+                    ));
+                }
+
+                """
+                   SequenceSuffix : "[" DecimalLiteral? "]" TypeSuffix
+                """
+                Type parseSequenceSuffix(Type primaryType) {
+                    expect("LBracket");
+                    if (exists sizeToken = match("DecimalLiteral")) {
+                        assert (is Integer size = Integer.parse(sizeToken.text));
+                        if (!size.positive) {
+                            throw Exception("Tuple size must be positive");
+                        }
+                        expect("RBracket");
+                        variable value type
                             =   scope.unit.tupleDeclaration.appliedType {
                                     null;
-                                    [primaryType, primaryType, type];
-                                 };
-                    }
-                    return type;
-                }
-                else {
-                    // SequenceType[]
-                    expect("RBracket");
-                    return scope.unit.getSequentialType(primaryType);
-                }
-            }
-
-            """
-               OptionalType: PrimaryType "?"
-            """
-            Type parseOptionalType(Type primaryType) {
-                expect("QuestionMark");
-                return union([primaryType, scope.unit.nullDeclaration.type], scope.unit);
-            }
-
-            """
-               PrimaryType: AtomicType | OptionalType | SequenceType | CallableType
-
-               AtomicType: QualifiedType | EmptyType | TupleType | IterableType
-               OptionalType: PrimaryType "?"
-               SequenceType: PrimaryType "[" "]"
-               CallableType: PrimaryType "(" (TypeList? | SpreadType) ")"
-            """
-            Type parsePrimaryType() {
-                """
-                   CallableType: PrimaryType "(" (TypeList? | SpreadType) ")"
-
-                   SpreadType: "*" UnionType
-                """
-                Type parseCallableType(Type primaryType) {
-                    Type arguments;
-                    expect("LParen");
-                    if (!tokens.first is RParen) {
-                        if (tokens.first is ProductOp) {
-                            // spread type; the type is the type of the argument list
-                            consume();
-                            arguments = parseUnionType();
+                                    [primaryType, primaryType,
+                                    scope.unit.emptyDeclaration.type];
+                                };
+                        for (_ in 0:size-1) {
+                            type = scope.unit.tupleDeclaration.appliedType {
+                                null;
+                                [primaryType, primaryType, type];
+                            };
                         }
-                        else {
-                            arguments = parseTypeList();
-                        }
+                        return parseTypeSuffix(type);
                     }
                     else {
-                        arguments = scope.unit.emptyDeclaration.type;
+                        expect("RBracket");
+                        return parseTypeSuffix(scope.unit.getSequentialType(primaryType));
                     }
+                }
+
+                """
+                   ParameterListSuffix : "(" (TypeList? | SpreadType) ")" TypeSuffix
+                   SpreadType          : "*" UnionType
+                """
+                Type parseParameterListSuffix(Type primaryType) {
+                    expect("LParen");
+
+                    Type arguments
+                        =   if (match("ProductOp") exists) then
+                                parseUnionType() // spread types
+                            else if (!peek() is RParen) then
+                                parseTypeList()
+                            else
+                                scope.unit.emptyDeclaration.type;
+
                     expect("RParen");
 
                     return scope.unit.callableDeclaration.appliedType {
@@ -500,73 +476,52 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                     };
                 }
 
-                // PrimaryType: AtomicType | OptionalType | SequenceType | CallableType
-                variable value type = parseAtomicType();
-                while (exists token = tokens.first) {
-                    switch (token)
-                    case (is QuestionMark) {
-                        type = parseOptionalType(type);
-                    }
-                    case (is LBracket) {
-                        type = parseSequenceType(type);
-                    }
-                    case (is LParen) {
-                        type = parseCallableType(type);
-                    }
-                    else {
-                        break;
-                    }
-                }
-                return type;
+                return switch (_ = peek())
+                    case (is QuestionMark) parseOptionalSuffix(primaryType)
+                    case (is LBracket) parseSequenceSuffix(primaryType)
+                    case (is LParen) parseParameterListSuffix(primaryType)
+                    else primaryType;
             }
+
+            """
+               PrimaryType         : AtomicType TypeSuffix
+            """
+            Type parsePrimaryType()
+                =>  parseTypeSuffix(parseAtomicType());
 
             """
                IntersectionType: PrimaryType ("&" PrimaryType)*
             """
             Type parseIntersectionType() {
-                value type = parsePrimaryType();
-                if (tokens.empty) {
-                    return type;
+                variable {Type+} types = [parsePrimaryType()];
+                while (match("IntersectionOp") exists) {
+                    types = types.follow(parsePrimaryType());
                 }
-                else {
-                    variable {Type+} types = [type];
-                    while (tokens.first is IntersectionOp) {
-                        consume();
-                        types = types.follow(parsePrimaryType());
-                    }
-                    return intersection(types.sequence().reversed, scope.unit);
-                }
+                return intersection(types.sequence().reversed, scope.unit);
             }
 
             // UnionType: IntersectionType ("|" IntersectionType)*
-            value type = parseIntersectionType();
-            if (tokens.empty) {
-                return type;
+            variable {Type+} types = [parseIntersectionType()];
+            while (match("UnionOp") exists) {
+                types = types.follow(parseIntersectionType());
             }
-            else {
-                variable {Type+} types = [type];
-                while (tokens.first is UnionOp) {
-                    consume();
-                    types = types.follow(parseIntersectionType());
-                }
-                return union(types.sequence().reversed, scope.unit);
-            }
+            return union(types.sequence().reversed, scope.unit);
         }
 
-        // Type: UnionType | EntryType
-        // EntryType: UnionType "->" UnionType
-        value type = parseUnionType();
-        if (tokens.first is EntryOp) {
-            consume();
+        // parseType()
+        //     Type      : UnionType | EntryType
+        //     EntryType : UnionType "->" UnionType
+        value type1 = parseUnionType();
+        if (match("EntryOp") exists) {
             Type type2 = parseUnionType();
-            return scope.unit.entryDeclaration.appliedType(null, {type, type2});
+            return scope.unit.entryDeclaration.appliedType(null, [type1, type2]);
         }
 
-        return type;
+        return type1;
     }
 
     value result = parseType();
-    if (exists token = tokens.first) {
+    if (exists token = peek()) {
         throw Exception("unexpected token: found ``token``");
     }
     return result;

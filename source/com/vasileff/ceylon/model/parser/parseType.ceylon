@@ -38,7 +38,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
         return token;
     }
 
-    Token check(Token? token, String? type) {
+    Token check(Token? token, TokenType? type) {
         if (!exists token) {
             if (exists type) {
                 throw Exception("Unexpected end of input: expected ``type``");
@@ -53,7 +53,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
         return token;
     }
 
-    Token checkAny(Token? token, String+ types) {
+    Token checkAny(Token? token, TokenType+ types) {
         if (!exists token) {
             throw Exception("Unexpected end of input: expected ``types``");
         }
@@ -63,19 +63,19 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
         return token;
     }
 
-    Token expectAny(String+ types) {
+    Token expectAny(TokenType+ types) {
         value token = checkAny(peek(), *types);
         consume();
         return token;
     }
 
-    Token expect(String? type) {
+    Token expect(TokenType? type) {
         value token = check(peek(), type);
         consume();
         return token;
     }
 
-    Token? match(String type) {
+    Token? match(TokenType type) {
         value token = peek();
         if (exists token, token.type == type) {
             consume();
@@ -105,9 +105,9 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                GroupedType: "<" Type ">"
             """
             Type parseGroupedType() {
-                expect("SmallerOp");
+                expect(smallerOp);
                 value result = parseType();
-                expect("LargerOp");
+                expect(largerOp);
                 return result;
             }
 
@@ -133,17 +133,17 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                TypeArguments : "<" ((TypeArgument ",")* TypeArgument)? ">"
             """
             [[Variance?, Type]*] parseTypeArguments() {
-                expect("SmallerOp");
+                expect(smallerOp);
 
                 variable {[Variance?, Type]*} arguments = [];
                 while (true) {
                     arguments = arguments.follow(parseTypeArgument());
-                    if (!match("Comma") exists) {
+                    if (!match(comma) exists) {
                         break;
                     }
                 }
 
-                expect("LargerOp");
+                expect(largerOp);
                 return arguments.sequence().reversed;
             }
 
@@ -151,7 +151,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                TypeNameWithArguments : TypeName TypeArguments?
             """
             String parseTypeName() {
-                value token = expect("UIdentifier");
+                value token = expect(uIdentifier);
                 return token.text;
             }
 
@@ -209,12 +209,12 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             Package parsePackageQualifier() {
                 value packageName = StringBuilder();
 
-                value token = expectAny("PackageKeyword", "DollarSign",
-                                        "MemberOp", "LIdentifier");
+                value token = expectAny(
+                        packageKeyword, dollarSign, memberOp, lIdentifier);
 
                 switch (token)
                 case (is PackageKeyword) {
-                    expect("MemberOp");
+                    expect(memberOp);
                     return scope.pkg;
                 }
                 case (is DollarSign) {
@@ -224,7 +224,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                 case (is MemberOp) {
                     // '.' is a shortcut for the scope's package
                     packageName.append(scope.pkg.qualifiedName);
-                    if (exists identifier = match("LIdentifier")) {
+                    if (exists identifier = match(lIdentifier)) {
                         packageName.append(".");
                         packageName.append(identifier.text);
                     }
@@ -234,13 +234,13 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                     packageName.append(token.text);
                 }
 
-                while (match("MemberOp") exists) {
+                while (match(memberOp) exists) {
                     packageName.append(".");
-                    value namePart = expect("LIdentifier");
+                    value namePart = expect(lIdentifier);
                     packageName.append(namePart.text);
                 }
 
-                expect("DoubleColon");
+                expect(doubleColon);
 
                 value result = scope.unit.mod.findPackage(packageName.string);
                 if (!exists result) {
@@ -268,7 +268,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             """
             Type parseQualifiedType() {
                 variable value type = parseBaseType();
-                while (match("MemberOp") exists) {
+                while (match(memberOp) exists) {
                     type = parseTypeNameWithArguments(type);
                 }
                 return type;
@@ -290,13 +290,13 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
 
                 variable {Type*} types = [parseType()];
 
-                if (match("Specify") exists) {
+                if (match(specify) exists) {
                     defaulted++;
                 }
 
-                while (match("Comma") exists) {
+                while (match(comma) exists) {
                     types = types.follow(parseType());
-                    if (match("Specify") exists) {
+                    if (match(specify) exists) {
                         defaulted++;
                     }
                     else if (defaulted.positive && !peek() is ProductOp) {
@@ -361,12 +361,12 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                TupleType : "[" TypeList? "]"
             """
             Type parseTupleType() {
-                expect("LBracket");
-                if (match("RBracket") exists) {
+                expect(lBracket);
+                if (match(rBracket) exists) {
                     return scope.unit.emptyDeclaration.type;
                 }
                 value result = parseTypeList();
-                expect("RBracket");
+                expect(rBracket);
                 return result;
             }
 
@@ -374,13 +374,13 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                IterableType : "{" UnionType ("*"|"+") "}"
             """
             Type parseIterableType() {
-                expect("LBrace");
+                expect(lBrace);
                 value type = parseUnionType();
                 value absent
-                    =   switch(_ = expectAny("ProductOp", "SumOp"))
+                    =   switch(_ = expectAny(productOp, sumOp))
                         case (is ProductOp) scope.unit.nullDeclaration.type
                         else scope.unit.nothingDeclaration.type;
-                expect("RBrace");
+                expect(rBrace);
                 return scope.unit.iterableDeclaration.appliedType(
                         null, [type, absent]);
             }
@@ -389,7 +389,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                Substitution : "^"
             """
             Type parseSubstitution() {
-                expect("Caret");
+                expect(caret);
                 assert (is Type t = substitutionIterator.next());
                 return t;
             }
@@ -415,7 +415,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                    OptionalSuffix : "?" TypeSuffix
                 """
                 Type parseOptionalSuffix(Type primaryType) {
-                    expect("QuestionMark");
+                    expect(questionMark);
                     return parseTypeSuffix(union(
                         [primaryType, scope.unit.nullDeclaration.type],
                         scope.unit
@@ -426,13 +426,13 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                    SequenceSuffix : "[" DecimalLiteral? "]" TypeSuffix
                 """
                 Type parseSequenceSuffix(Type primaryType) {
-                    expect("LBracket");
-                    if (exists sizeToken = match("DecimalLiteral")) {
+                    expect(lBracket);
+                    if (exists sizeToken = match(decimalLiteral)) {
                         assert (is Integer size = Integer.parse(sizeToken.text));
                         if (!size.positive) {
                             throw Exception("Tuple size must be positive");
                         }
-                        expect("RBracket");
+                        expect(rBracket);
                         variable value type
                             =   scope.unit.tupleDeclaration.appliedType {
                                     null;
@@ -448,7 +448,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                         return parseTypeSuffix(type);
                     }
                     else {
-                        expect("RBracket");
+                        expect(rBracket);
                         return parseTypeSuffix(scope.unit.getSequentialType(primaryType));
                     }
                 }
@@ -458,17 +458,17 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                    SpreadType          : "*" UnionType
                 """
                 Type parseParameterListSuffix(Type primaryType) {
-                    expect("LParen");
+                    expect(lParen);
 
                     Type arguments
-                        =   if (match("ProductOp") exists) then
+                        =   if (match(productOp) exists) then
                                 parseUnionType() // spread types
                             else if (!peek() is RParen) then
                                 parseTypeList()
                             else
                                 scope.unit.emptyDeclaration.type;
 
-                    expect("RParen");
+                    expect(rParen);
 
                     return scope.unit.callableDeclaration.appliedType {
                         null;
@@ -494,7 +494,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             """
             Type parseIntersectionType() {
                 variable {Type+} types = [parsePrimaryType()];
-                while (match("IntersectionOp") exists) {
+                while (match(intersectionOp) exists) {
                     types = types.follow(parsePrimaryType());
                 }
                 return intersection(types.sequence().reversed, scope.unit);
@@ -502,7 +502,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
 
             // UnionType: IntersectionType ("|" IntersectionType)*
             variable {Type+} types = [parseIntersectionType()];
-            while (match("UnionOp") exists) {
+            while (match(unionOp) exists) {
                 types = types.follow(parseIntersectionType());
             }
             return union(types.sequence().reversed, scope.unit);
@@ -512,7 +512,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
         //     Type      : UnionType | EntryType
         //     EntryType : UnionType "->" UnionType
         value type1 = parseUnionType();
-        if (match("EntryOp") exists) {
+        if (match(entryOp) exists) {
             Type type2 = parseUnionType();
             return scope.unit.entryDeclaration.appliedType(null, [type1, type2]);
         }

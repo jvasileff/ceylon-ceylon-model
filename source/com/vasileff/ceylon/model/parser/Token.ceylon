@@ -4,7 +4,7 @@ class Token()
         of IgnoredToken | IdentifierToken | LiteralToken
             | KeywordToken | SymbolToken | ErrorToken {
 
-    shared formal String type;
+    shared formal TokenType type;
     shared formal String text;
     //shared Integer? column;
     //shared Integer? line;
@@ -23,6 +23,40 @@ class Token()
     }
 }
 
+shared abstract class TokenType(shared String name) {}
+shared object whitespace extends TokenType("Whitespace") {}
+shared object lineComment extends TokenType("LineComment") {}
+shared object multiComment extends TokenType("MultiComment") {}
+shared object lIdentifier extends TokenType("LIdentifier") {}
+shared object uIdentifier extends TokenType("UIdentifier") {}
+shared object decimalLiteral extends TokenType("DecimalLiteral") {}
+shared object packageKeyword extends TokenType("PackageKeyword") {}
+shared object inKeyword extends TokenType("InKeyword") {}
+shared object outKeyword extends TokenType("OutKeyword") {}
+shared object doubleColon extends TokenType("DoubleColon") {}
+shared object comma extends TokenType("Comma") {}
+shared object lBrace extends TokenType("LBrace") {}
+shared object rBrace extends TokenType("RBrace") {}
+shared object lParen extends TokenType("LParen") {}
+shared object rParen extends TokenType("RParen") {}
+shared object lBracket extends TokenType("LBracket") {}
+shared object rBracket extends TokenType("RBracket") {}
+shared object questionMark extends TokenType("QuestionMark") {}
+shared object memberOp extends TokenType("MemberOp") {}
+shared object specify extends TokenType("Specify") {}
+shared object sumOp extends TokenType("SumOp") {}
+shared object productOp extends TokenType("ProductOp") {}
+shared object entryOp extends TokenType("EntryOp") {}
+shared object intersectionOp extends TokenType("IntersectionOp") {}
+shared object unionOp extends TokenType("UnionOp") {}
+shared object smallerOp extends TokenType("SmallerOp") {}
+shared object largerOp extends TokenType("LargerOp") {}
+shared object dollarSign extends TokenType("DollarSign") {}
+shared object caret extends TokenType("Caret") {}
+shared object unknownCharacter extends TokenType("UnknownCharacter") {}
+shared object unknownEscape extends TokenType("UnknownEscape") {}
+shared object openMultiComment extends TokenType("OpenMultiComment") {}
+
 "An ignored token that’s not visible to the parser."
 shared abstract class IgnoredToken()
         of Whitespace | LineComment | MultiComment
@@ -31,7 +65,7 @@ shared abstract class IgnoredToken()
 "Whitespace."
 shared class Whitespace(text) extends IgnoredToken() {
     shared actual String text;
-    shared actual String type => "Whitespace";
+    shared actual TokenType type => whitespace;
 }
 
 "A single-line comment, for example:
@@ -40,7 +74,7 @@ shared class Whitespace(text) extends IgnoredToken() {
      #!/usr/bin/ceylon"
 shared class LineComment(text) extends IgnoredToken() {
     shared actual String text;
-    shared actual String type => "LineComment";
+    shared actual TokenType type => lineComment;
 }
 
 "A multi-line comment, for example:
@@ -54,7 +88,7 @@ shared class LineComment(text) extends IgnoredToken() {
      /* can /* be */ nested */"
 shared class MultiComment(text) extends IgnoredToken() {
     shared actual String text;
-    shared actual String type => "MultiComment";
+    shared actual TokenType type => multiComment;
 }
 
 """An identifier (with optional prefix), for example:
@@ -78,7 +112,7 @@ shared abstract class IdentifierToken()
        \iSOUTH"""
 shared class LIdentifier(text) extends IdentifierToken() {
     shared actual String text;
-    shared actual String type => "LIdentifier";
+    shared actual TokenType type => lIdentifier;
 }
 
 """An initial uppercase identifier (with optional prefix), for example:
@@ -87,7 +121,7 @@ shared class LIdentifier(text) extends IdentifierToken() {
        \Iklass"""
 shared class UIdentifier(text) extends IdentifierToken() {
     shared actual String text;
-    shared actual String type => "UIdentifier";
+    shared actual TokenType type => uIdentifier;
 }
 
 "A literal value token."
@@ -111,7 +145,7 @@ shared abstract class IntegerLiteralToken()
      10k"
 shared class DecimalLiteral(text) extends IntegerLiteralToken() {
     shared actual String text;
-    shared actual String type => "DecimalLiteral";
+    shared actual TokenType type => decimalLiteral;
 }
 
 "A keyword."
@@ -122,19 +156,19 @@ shared abstract class KeywordToken()
 "The ‘`package`’ keyword."
 shared class PackageKeyword() extends KeywordToken() {
     shared actual String text => "package";
-    shared actual String type => "PackageKeyword";
+    shared actual TokenType type => packageKeyword;
 }
 
 "The ‘`in`’ keyword."
 shared class InKeyword() extends KeywordToken() {
     shared actual String text => "in";
-    shared actual String type => "InKeyword";
+    shared actual TokenType type => inKeyword;
 }
 
 "The ‘`out`’ keyword."
 shared class OutKeyword() extends KeywordToken() {
     shared actual String text => "out";
-    shared actual String type => "OutKeyword";
+    shared actual TokenType type => outKeyword;
 }
 
 "A symbol, that is, an operator or punctuation."
@@ -148,121 +182,121 @@ class SymbolToken()
 "Two colons: ‘`::`’"
 shared class DoubleColon() extends SymbolToken() {
     shared actual String text => "::";
-    shared actual String type => "DoubleColon";
+    shared actual TokenType type => doubleColon;
 }
 
 "A comma: ‘`,`’"
 shared class Comma() extends SymbolToken() {
     shared actual String text => ",";
-    shared actual String type => "Comma";
+    shared actual TokenType type => comma;
 }
 
 "A left brace: ‘`{`’"
 shared class LBrace() extends SymbolToken() {
     shared actual String text => "{";
-    shared actual String type => "LBrace";
+    shared actual TokenType type => lBrace;
 }
 
 "A right brace: ‘`}`’"
 shared class RBrace() extends SymbolToken() {
     shared actual String text => "}";
-    shared actual String type => "RBrace";
+    shared actual TokenType type => rBrace;
 }
 
 "A left parenthesis: ‘`(`’"
 shared class LParen() extends SymbolToken() {
     shared actual String text => "(";
-    shared actual String type => "LParen";
+    shared actual TokenType type => lParen;
 }
 
 "A right parenthesis: ‘`)`’"
 shared class RParen() extends SymbolToken() {
     shared actual String text => ")";
-    shared actual String type => "RParen";
+    shared actual TokenType type => rParen;
 }
 
 "A left bracket: ‘`[`’"
 shared class LBracket() extends SymbolToken() {
     shared actual String text => "[";
-    shared actual String type => "LBracket";
+    shared actual TokenType type => lBracket;
 }
 
 "A right bracket: ‘`]`’"
 shared class RBracket() extends SymbolToken() {
     shared actual String text => "]";
-    shared actual String type => "RBracket";
+    shared actual TokenType type => rBracket;
 }
 
 "A question mark: ‘`?`’"
 shared class QuestionMark() extends SymbolToken() {
     shared actual String text => "?";
-    shared actual String type => "QuestionMark";
+    shared actual TokenType type => questionMark;
 }
 
 "A member operator: ‘`.`’"
 shared class MemberOp() extends SymbolToken() {
     shared actual String text => ".";
-    shared actual String type => "MemberOp";
+    shared actual TokenType type => memberOp;
 }
 
 "An eager specification operator: ‘`=`’"
 shared class Specify() extends SymbolToken() {
     shared actual String text => "=";
-    shared actual String type => "Specify";
+    shared actual TokenType type => specify;
 }
 
 "A sum operator: ‘`+`’"
 shared class SumOp() extends SymbolToken() {
     shared actual String text => "+";
-    shared actual String type => "SumOp";
+    shared actual TokenType type => sumOp;
 }
 
 "A product or spread operator: ‘`*`’"
 shared class ProductOp() extends SymbolToken() {
     shared actual String text => "*";
-    shared actual String type => "ProductOp";
+    shared actual TokenType type => productOp;
 }
 
 "An entry operator: ‘`->`’"
 shared class EntryOp() extends SymbolToken() {
     shared actual String text => "->";
-    shared actual String type => "EntryOp";
+    shared actual TokenType type => entryOp;
 }
 
 "An intersection operator: ‘`&`’"
 shared class IntersectionOp() extends SymbolToken() {
     shared actual String text => "&";
-    shared actual String type => "IntersectionOp";
+    shared actual TokenType type => intersectionOp;
 }
 
 "A union operator: ‘`|`’"
 shared class UnionOp() extends SymbolToken() {
     shared actual String text => "|";
-    shared actual String type => "UnionOp";
+    shared actual TokenType type => unionOp;
 }
 
 "A smaller-as operator: ‘`<`’"
 shared class SmallerOp() extends SymbolToken() {
     shared actual String text => "<";
-    shared actual String type => "SmallerOp";
+    shared actual TokenType type => smallerOp;
 }
 
 "A larger-as operator: ‘`>`’"
 shared class LargerOp() extends SymbolToken() {
     shared actual String text => ">";
-    shared actual String type => "LargerOp";
+    shared actual TokenType type => largerOp;
 }
 
 "A dollar sign, which serves as a shortcut for the language module: ‘`$`’"
 shared class DollarSign() extends SymbolToken() {
     shared actual String text => "$";
-    shared actual String type => "DollarSign";
+    shared actual TokenType type => dollarSign;
 }
 
 "A caret, which serves as a placeholder for a type: ‘`^`’"
 shared class Caret() extends SymbolToken() {
     shared actual String text => "^";
-    shared actual String type => "Caret";
+    shared actual TokenType type => caret;
 }
 
 "An erroneous token."
@@ -279,13 +313,13 @@ shared abstract class UnknownToken()
 "A character that cannot begin any token."
 shared class UnknownCharacter(text) extends UnknownToken()  {
     shared actual String text;
-    shared actual String type => "UnknownCharacter";
+    shared actual TokenType type => unknownCharacter;
 }
 
 "A character other than lower-or uppercase I after a backslash."
 shared class UnknownEscape(text) extends UnknownToken()  {
     shared actual String text;
-    shared actual String type => "UnknownEscape";
+    shared actual TokenType type => unknownEscape;
 }
 
 "A token that was not terminated. The token stream ends after this token."
@@ -296,5 +330,5 @@ shared abstract class OpenToken()
 "An unterminated [[MultiComment]]."
 shared class OpenMultiComment(text) extends OpenToken() {
     shared actual String text;
-    shared actual String type => "OpenMultiComment";
+    shared actual TokenType type => openMultiComment;
 }

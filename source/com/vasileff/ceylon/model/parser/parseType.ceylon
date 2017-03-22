@@ -152,7 +152,8 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
             """
             String parseTypeName() {
                 value token = expect(uIdentifier);
-                return token.text;
+                assert (is UIdentifier token);
+                return token.identifier;
             }
 
             """
@@ -225,19 +226,21 @@ Type parseType(String input, Scope scope, {Type*} substitutions = []) {
                     // '.' is a shortcut for the scope's package
                     packageName.append(scope.pkg.qualifiedName);
                     if (exists identifier = match(lIdentifier)) {
+                        assert (is LIdentifier identifier);
                         packageName.append(".");
-                        packageName.append(identifier.text);
+                        packageName.append(identifier.identifier);
                     }
                 }
                 else {
                     assert (is LIdentifier token);
-                    packageName.append(token.text);
+                    packageName.append(token.identifier);
                 }
 
                 while (match(memberOp) exists) {
                     packageName.append(".");
                     value namePart = expect(lIdentifier);
-                    packageName.append(namePart.text);
+                    assert (is LIdentifier namePart);
+                    packageName.append(namePart.identifier);
                 }
 
                 expect(doubleColon);

@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/jvasileff/ceylon-ceylon-model.svg?branch=master)](https://travis-ci.org/jvasileff/ceylon-ceylon-model)
 # Ceylon Model in Ceylon
 
 This is a work-in-progress port of the Java version of [Ceylon

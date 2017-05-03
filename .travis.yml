@@ -20,7 +20,7 @@ install:
 before_script:
   - ceylon compile --rep=http://ceylon.vasileff.com/modules
 script:
-  - ceylon test --rep=http://ceylon.vasileff.com/modules test.com.vasileff.ceylon.model
+  - ceylon test test.com.vasileff.ceylon.model
 env:
   global:
     - CEYLON="http://ceylon-lang.org/download/dist/1_3_2"

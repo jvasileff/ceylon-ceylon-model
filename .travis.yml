@@ -1,5 +1,16 @@
 sudo: false
 language: java
+addons:
+  artifacts:
+    debug: true
+    bucket: ceylon.vasileff.com
+    target_paths: modules
+    paths:
+      - ./modules
+    key:
+      secure: RUsmFiFDh60xeniW1hXejZ5FNfOMn9R7D2L7sWMoTJ+UU0xLD2sEK1iS2H2r8LrCmzLHfFPCVSbTXr3iwBfB7GDQLWCVG/mdfDDoQwg7pq2+Mwd1gpNCt3XEgO0rEvctVlq6yQgAgTNrzvVm6Hf08vSfnZNhBzLAJ8gYw14s/SrPmlwI8qJlr9/TGMo7vsdWZG0Pumja1Q7inFunMOq+raChr+Csu1XN8GKAglghv31GKv2kcAv21aLGyf70+HZ2pbMXlP0okrc5RrHaahy29Suqh10utlTRzbZpcFm5bJYPvWKlPD5B7DMf+5NwU3gEYovw1lb3qOEmrS8Yz03hX/chxSe2USFZPj0x3fOoKJeyjHZIFi/85Q1ELD3iGZd9cGvBVTnkElRgbgQcEt3/hOqkmmrmdL2Psv/7oN0+UlkXNk8VRcdjhddoax9mkIula+mSIbKLgSf/XYMvGzxAhcK4kjToJEMsgrecqyrUFUM+YqpyafHL51PmLub2bMtHdM5BruzCO4z2bQ36zH353Ba5nbR+uDprazK/xCPpfCEmsjhsXnk/dahNDwLWxvA3WLt8asndmE3a69VOQalQoRFAvZb9NgGkZG2uyT8UqQ4CyKvFqwGlKMVT6MkV53cYKGLQe3o4XSmsegK/j7yssKGWHJajinjMddX4inBJR8k=
+    secret:
+      secure: Vv4FTSnfc0X5840qY0WQeNi5qGBuLOgpTv+JaTDM6KLQBdtD1LLHedGteXzhMwJhRkjoTDmxi0ZS//CwHIz/IaEvuLmbeOx6xZyjL3YD8kPpuJw3prAEaRgDvrp9VmI6LrSebrQLEydDVvJauk+CI5fGhcBAj1gtdo+loze83gCffZuop4MmFW221UfZWsvYcybHpz87BYSbhPLLLi9GTTV9zo5J8r8bG0nJ/NC+RiDuBklFBmWau9NrhF/o8SwP9RCxsiUXOgx1ukUPQacGByD2OyRjqrA2AUXvNy/kU6VroDDX54xGR2uX+I6eSQCEfE7UmGMeVd6BsixQz6MqN/EfRzFXbxA5xt97tV7Vizdy9uad8DW07YYuJZHnElySpu7t6y6rHN4MgcGqHx6XynfhWaOzRwu9lyLIAH3Rgzz2n9QKhde9N7QBnBT5EPrgKcGXQdhVxHIKUarDQIvWQ8aXGXT39QKArfn9wY+zu+EaijyMJb6BhiglfM/Z8XBCOTgkisbctWO4h14kaC49QCm3uPUb0P7gHE1DKp3bmAKGfnbXc2R2mU/sQAwMJCbe5hZhcQ9afhXQqWE6wrFAo0OeHUBpJZ/CAc/VhW8n1qTasokHluqYyEWwl5Zw399mKX8z6LO5GcM+zrxpMmZFIRRj/6f+WqSly8tkgXQGcyc=
 jdk:
   - oraclejdk8
 install:
@@ -7,9 +18,9 @@ install:
   - unzip /tmp/ceylon.zip
   - export PATH=$PATH:$PWD/ceylon-1.3.2/bin/
 before_script:
-  - ceylon compile
+  - ceylon compile --rep=http://ceylon.vasileff.com/modules
 script:
-  - ceylon test $TEST_MODULE
+  - ceylon test --rep=http://ceylon.vasileff.com/modules test.com.vasileff.ceylon.model
 env:
   global:
     - CEYLON="http://ceylon-lang.org/download/dist/1_3_2"

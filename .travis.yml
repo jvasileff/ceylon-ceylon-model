@@ -3,6 +3,8 @@ language: java
 notifications:
   email: false
   pushover:
+    on_failure: always
+    on_success: change
     api_key:
       secure: bX37kfotzuNAU9FVkZ8KZW+xhlz2g9iTs8phXWwNhz6CXCN/osl0jFKvycKOyo2WwJKPRcLmhN1bli3H7iinkS6k2X0daGUNuMKX/+IndqBHLeye+INoPJv0H6NusA+698bq6xNiLqSEKvZGPGPF1cEPk6XaL1ChF6894U9MbjL/gKqyAZAPQJG8XOs+EOs/M5ESmvX0QNxG6JxAqnDhlQ3+CbBM0fTJ4Wwmcbqtr9Q1ilAWx7Pd41CJnuw/ZAAZ7qTaMWSwHJ7fEIkhWhrp/ouzSJSV1OE13WW4GYn79OHjvNKKd2/ewrSXK/rKaygfRQ80nLkS73We1hy28AsTJvNrrxl6ZFDn579V5F+IsSDXMCCJ1kgMdQiRXuQbM0ARM2Cw2qNSzVLc3YmCwsrkRV53KYhEFWnhUUuPbSsPhmdF7M42t8ZsifJNVC+SQgRkBuwXp7h/5xOhRM3naXPIj+NaXepkS8fcnTeSgZcopmmb6l+F66sW8DNxyGZ8avg4ktQsCRT6QkA71w4SY87sF3PIzlpiLA+hD42FUWQdtcDJZ/U8eYkaM/jElib6qFmAN9CYUOqv13uXJFPdAjgtFABH56KQTwNZdMuPY4LZluPrvkxA+bcCjUhFXVFt2aPrqf49EQUrU1N8g1sn80NimD6sm7rjqrKvT8Tj/LzQ5nM=
     users:

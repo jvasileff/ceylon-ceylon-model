@@ -33,7 +33,7 @@ install:
 before_script:
   - ceylon compile,compile-js,compile-dart
 script:
-  - ceylon test $TEST_MODULE
+    - ceylon test,test-js $TEST_MODULE
 env:
   global:
     - CEYLON="http://ceylon-lang.org/download/dist/1_3_2"

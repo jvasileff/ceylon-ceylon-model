@@ -1,223 +1,156 @@
-import com.vasileff.ceylon.model.internal {
-    eq
-}
-
 shared
-class TokenStream(List<Character> characters) satisfies {Token*} {
+class TokenStream({Character*} characters) satisfies {Token*} {
 
     shared actual
     Iterator<Token> iterator() => object satisfies Iterator<Token> {
-        variable List<Character> characters
-            // workaround https://github.com/ceylon/ceylon/issues/6237
-            =   if (outer.characters is String)
-                then outer.characters.sequence()
-                else outer.characters;
-
-        void consume(Integer count = 1) {
-            characters = characters.sublistFrom(count);
-        }
+        value t = Tokenizer(characters);
 
         shared actual
         Token|Finished next() {
-            "Given an initial character of an identifier, consumes that character, then
-             reads on until the identifier is finished."
-            Token identifier(Character first) {
-                consume();
-                StringBuilder text = StringBuilder();
-                text.appendCharacter(first);
-                Boolean lowercase = first.lowercase;
-                while (exists next = characters[0], isIdentifierPart(next)) {
-                    text.appendCharacter(next);
-                    consume();
-                }
+
+            "Assuming at least one identifer character has already been accepted, accept
+             remaining identifer characters and return an [[LIdentifier]] or
+             [[UIdentifier]] token."
+            function identifier() {
+                t.acceptRun(isIdentifierPart);
+                value text = t.newToken();
+                value lowercase = text.first?.lowercase;
+                "Caller guarantees token is non-empty"
+                assert (exists lowercase);
                 return if (lowercase)
-                       then LIdentifier(text.string)
-                       else UIdentifier(text.string);
+                       then LIdentifier(text)
+                       else UIdentifier(text);
             }
 
-            value first = characters[0];
-            if (!exists first) {
+            switch (first = t.advance())
+            case (null) {
                 return finished;
             }
-
-            switch (first)
             case ('/') {
                 // start of comment?
-                switch (characters[1])
+                switch (t.advance())
                 case ('/') {
                     // line comment
-                    value line = characters.takeWhile(not('\n'.equals)).sequence();
-                    consume(line.size);
-                    return LineComment(String(line));
+                    t.acceptRun(not('\n'.equals));
+                    return LineComment(t.newToken());
                 }
                 case ('*') {
                     // multi comment
-                    consume(2);
-                    StringBuilder text = StringBuilder();
-                    text.append("/*");
-                    variable Integer level = 1;
+                    variable value level = 1;
                     while (level != 0) {
-                        value next = characters[0];
+                        value next = t.advance();
                         if (!exists next) {
-                            return OpenMultiComment(text.string);
+                            return OpenMultiComment(t.newToken());
                         }
-                        else if (next == '/', eq(characters[1], '*')) {
+                        else if (next == '/', t.accept('*')) {
                             level++;
-                            text.append("/*");
-                            consume(2);
-                        } else if (next == '*', eq(characters[1], '/')) {
+                        } else if (next == '*', t.accept('/')) {
                             level--;
-                            text.append("*/");
-                            consume(2);
-                        } else {
-                            text.appendCharacter(next);
-                            consume();
                         }
                     }
-                    return MultiComment(text.string);
+                    return MultiComment(t.newToken());
                 }
                 else {
-                    consume();
-                    return UnknownCharacter(first.string);
+                    return UnknownCharacter(t.newToken());
                 }
             }
             case ('#') {
-                if (eq(characters[1], '!')) {
+                if (t.accept('!')) {
                     #! line comment
-                    value line = characters.takeWhile(not('\n'.equals)).sequence();
-                    consume(line.size);
-                    return LineComment(String(line));
+                    t.acceptRun(not('\n'.equals));
+                    return LineComment(t.newToken());
                 }
                 else {
-                    consume();
-                    return UnknownCharacter(first.string);
+                    return UnknownCharacter(t.newToken());
                 }
             }
             case ('\\') {
-                switch (next = characters[1])
+                switch (next = t.advance())
                 case ('i') {
                     // forced lowercase identifier
-                    value text = characters.takeWhile(isIdentifierPart).sequence();
-                    consume(text.size);
-                    return LIdentifier(String(text));
+                    t.acceptRun(isIdentifierPart);
+                    return LIdentifier(t.newToken());
                 }
                 case ('I') {
                     // forced uppercase identifier
-                    value text = characters.takeWhile(isIdentifierPart).sequence();
-                    consume(text.size);
-                    return UIdentifier(String(text));
+                    t.acceptRun(isIdentifierPart);
+                    return UIdentifier(t.newToken());
                 }
                 else {
                     // unknown escape, consume only the backslash
-                    consume();
-                    return UnknownEscape("\\");
+                    return UnknownEscape(t.newToken());
                 }
             }
             case ('0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9') {
                 // numeric literal, we don’t know yet which kind
-                consume();
-                StringBuilder text = StringBuilder();
-                text.appendCharacter(first);
-                while (exists next = characters[0], '0' <= next <= '9' || next == '_') {
-                    text.appendCharacter(next);
-                    consume();
-                }
-                switch (next = characters[0])
-                case ('k' | 'M' | 'G' | 'T' | 'P') {
-                    // regular magnitude
-                    text.appendCharacter(first);
-                    consume();
-                    return DecimalLiteral(text.string);
-                }
-                else {
-                    // belongs to the next token
-                    return DecimalLiteral(text.string);
-                }
+                t.acceptRun((c) => '0' <= c <= '9' || c == '_');
+                t.accept("kMGTP");
+                return DecimalLiteral(t.newToken());
             }
             case ('i') {
-                if (eq(characters[1], 'n')) {
-                    value next = characters[2];
-                    if (exists next, isIdentifierPart(next)) {
-                        return identifier(first);
-                    }
-                    else {
-                        consume(2);
-                        return InKeyword();
-                    }
+                if (t.accept('n') && !t.accept(isIdentifierPart)) {
+                    t.ignore();
+                    return InKeyword();
                 }
                 else {
-                    return identifier(first);
+                    return identifier();
                 }
             }
             case ('o') {
-                if (eq(characters[1], 'u') && eq(characters[2], 't')) {
-                    value next = characters[3];
-                    if (exists next, isIdentifierPart(next)) {
-                        return identifier(first);
-                    }
-                    else {
-                        consume(3);
-                        return OutKeyword();
-                    }
+                if (t.accept('u') && t.accept('t') && !t.accept(isIdentifierPart)) {
+                    t.ignore();
+                    return OutKeyword();
                 }
                 else {
-                    return identifier(first);
+                    return identifier();
                 }
             }
-            case (',') { consume(); return Comma(); }
-            case ('{') { consume(); return LBrace(); }
-            case ('}') { consume(); return RBrace(); }
-            case ('(') { consume(); return LParen(); }
-            case (')') { consume(); return RParen(); }
-            case ('[') { consume(); return LBracket(); }
-            case (']') { consume(); return RBracket(); }
-            case ('.') { consume(); return MemberOp(); }
-            case ('?') { consume(); return QuestionMark(); }
-            case ('*') { consume(); return ProductOp(); }
-            case ('=') { consume(); return Specify(); }
-            case ('+') { consume(); return SumOp(); }
-            case ('&') { consume(); return IntersectionOp(); }
-            case ('|') { consume(); return UnionOp(); }
-            case ('<') { consume(); return SmallerOp(); }
-            case ('>') { consume(); return LargerOp(); }
-            case ('^') { consume(); return Caret(); }
-            case ('$') { consume(); return DollarSign(); }
+            case (',') { t.ignore(); return Comma(); }
+            case ('{') { t.ignore(); return LBrace(); }
+            case ('}') { t.ignore(); return RBrace(); }
+            case ('(') { t.ignore(); return LParen(); }
+            case (')') { t.ignore(); return RParen(); }
+            case ('[') { t.ignore(); return LBracket(); }
+            case (']') { t.ignore(); return RBracket(); }
+            case ('.') { t.ignore(); return MemberOp(); }
+            case ('?') { t.ignore(); return QuestionMark(); }
+            case ('*') { t.ignore(); return ProductOp(); }
+            case ('=') { t.ignore(); return Specify(); }
+            case ('+') { t.ignore(); return SumOp(); }
+            case ('&') { t.ignore(); return IntersectionOp(); }
+            case ('|') { t.ignore(); return UnionOp(); }
+            case ('<') { t.ignore(); return SmallerOp(); }
+            case ('>') { t.ignore(); return LargerOp(); }
+            case ('^') { t.ignore(); return Caret(); }
+            case ('$') { t.ignore(); return DollarSign(); }
             case ('-') {
-                if (eq(characters[1], '>')) {
-                    consume(2);
+                if (t.accept('>')) {
+                    t.ignore();
                     return EntryOp();
                 }
                 else {
-                    consume();
-                    return UnknownCharacter(first.string);
+                    return UnknownCharacter(t.newToken());
                 }
             }
             case (':') {
-                if (eq(characters[1], ':')) {
-                    consume(2);
+                if (t.accept(':')) {
+                    t.ignore();
                     return DoubleColon();
                 }
                 else {
-                    consume();
-                    return UnknownCharacter(first.string);
+                    return UnknownCharacter(t.newToken());
                 }
             }
             else {
                 if (isIdentifierStart(first)) {
-                    return identifier(first);
-                } else {
+                    return identifier();
+                }
+                else {
                     if (first.whitespace) {
-                        consume();
-                        StringBuilder text = StringBuilder();
-                        text.appendCharacter(first);
-                        while (exists next = characters[0], next.whitespace) {
-                            text.appendCharacter(first);
-                            consume();
-                        }
-                        return Whitespace(text.string);
+                        t.acceptRun(Character.whitespace);
+                        return Whitespace(t.newToken());
                     } else {
-                        consume();
-                        return UnknownCharacter(first.string);
+                        return UnknownCharacter(t.newToken());
                     }
                 }
             }
@@ -225,8 +158,8 @@ class TokenStream(List<Character> characters) satisfies {Token*} {
     };
 
     Boolean isIdentifierStart(Character character)
-            => character.letter || character == '_';
+        =>  character.letter || character == '_';
 
     Boolean isIdentifierPart(Character character)
-            => character.letter || character.digit || character == '_';
+        =>  character.letter || character.digit || character == '_';
 }

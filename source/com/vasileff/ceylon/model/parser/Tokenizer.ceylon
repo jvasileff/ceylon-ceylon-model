@@ -14,6 +14,8 @@ shared class Tokenizer({Character*} input,
     shared variable Integer startLine = line;
     shared variable Integer startColumn = column;
 
+    shared {Character*} accumulatedText => builder;
+
     shared Character? advance() {
         if (!is Finished c = iterator.next()) {
             position += 1;
@@ -77,8 +79,8 @@ shared class Tokenizer({Character*} input,
     String text()
         =>  builder.string;
 
-    shared String newToken() {
-        value result = text();
+    shared Token newToken(TokenType type) {
+        value result = Token(type, text());
         ignore();
         return result;
     }

@@ -20,7 +20,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     value substitutionIterator = substitutions.iterator();
 
     value tokenIterator = TokenStream(input)
-            .filter((token) => !token is IgnoredToken)
+            .filter((token) => !token.type in [whitespace, lineComment, multiComment])
             .iterator();
 
     ParseException error(Token? token, String errorDescription) {
@@ -177,10 +177,8 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     """
         TypeNameWithArguments : TypeName TypeArguments?
     """
-    String parseTypeName() {
-        assert (is UIdentifier token = consume(uIdentifier));
-        return token.identifier;
-    }
+    String parseTypeName()
+        =>  cleanIdentifier(consume(uIdentifier).text);
 
     """
         TypeNameWithArguments : TypeName TypeArguments?
@@ -235,37 +233,36 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     """
     Package parsePackageQualifier() {
         value packageName = StringBuilder();
+        value token = consumeAny(packageKeyword, dollarSign, memberOp, lIdentifier);
 
-        value token = consumeAny(
-                packageKeyword, dollarSign, memberOp, lIdentifier);
-
-        switch (token)
-        case (is PackageKeyword) {
+        switch (token.type)
+        case (packageKeyword) {
             consume(memberOp);
             return scope.pkg;
         }
-        case (is DollarSign) {
+        case (dollarSign) {
             // '$' is a shortcut for "ceylon.language"
             packageName.append("ceylon.language");
         }
-        case (is MemberOp) {
+        case (memberOp) {
             // '.' is a shortcut for the scope's package
             packageName.append(scope.pkg.qualifiedName);
             if (exists identifier = advanceIf(lIdentifier)) {
-                assert (is LIdentifier identifier);
                 packageName.append(".");
-                packageName.append(identifier.identifier);
+                packageName.append(cleanIdentifier(identifier.text));
             }
         }
+        case (lIdentifier) {
+            packageName.append(cleanIdentifier(token.text));
+        }
         else {
-            assert (is LIdentifier token);
-            packageName.append(token.identifier);
+            throw AssertionError("unexpected type in supposedly exhaustive switch");
         }
 
         while (accept(memberOp)) {
             packageName.append(".");
-            assert (is LIdentifier namePart = consume(lIdentifier));
-            packageName.append(namePart.identifier);
+            value namePart = consume(lIdentifier);
+            packageName.append(cleanIdentifier(namePart.text));
         }
 
         consume(doubleColon);
@@ -282,10 +279,10 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         BaseType : GroupedType | PackageQualifier? TypeNameWithArguments
     """
     Type parseBaseType() {
-        return switch (token = peek())
-        case (is LargerOp)
+        return switch (peek()?.type)
+        case (largerOp)
             parseGroupedType()
-        case (is PackageKeyword | DollarSign | MemberOp | LIdentifier)
+        case (packageKeyword | dollarSign | memberOp | lIdentifier)
             parseTypeNameWithArguments(parsePackageQualifier())
         else
             parseTypeNameWithArguments();
@@ -333,23 +330,23 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
             }
         }
 
-        assert (is ProductOp | SumOp | Null variadic = advanceIfAny(productOp, sumOp));
+        value variadic = advanceIfAny(productOp, sumOp);
 
         variable Type result;
         variable Type element;
 
         // calculate rest
-        switch (variadic)
-        case (is Null) {
-            result = scope.unit.emptyDeclaration.type;
-            element = scope.unit.nothingDeclaration.type;
-        }
-        case (is ProductOp | SumOp) {
-            value declaration
-                =   switch (variadic)
-                    case (is ProductOp) scope.unit.sequentialDeclaration
-                    case (is SumOp) scope.unit.sequenceDeclaration;
+        value declaration
+            =   switch (variadic?.type)
+                case (productOp) scope.unit.sequentialDeclaration
+                case (sumOp) scope.unit.sequenceDeclaration
+                else null;
 
+        if (!exists declaration) {
+            result = scope.unit.emptyDeclaration.type;
+            element = scope.unit.nothingDeclaration.type;            
+        }
+        else {
             assert (exists restType = types.first);
             result = declaration.appliedType {
                 null;
@@ -397,10 +394,9 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     Type parseIterableType() {
         consume(lBrace);
         value type = parseUnionType();
-        value absent
-            =   switch(_ = consumeAny(productOp, sumOp))
-                case (is ProductOp) scope.unit.nullDeclaration.type
-                else scope.unit.nothingDeclaration.type;
+        value absent = switch(consumeAny(productOp, sumOp).type)
+                       case (productOp) scope.unit.nullDeclaration.type
+                       else scope.unit.nothingDeclaration.type;
         consume(rBrace);
         return scope.unit.iterableDeclaration.appliedType(
                 null, [type, absent]);
@@ -419,10 +415,10 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         AtomicType : QualifiedType | TupleType | IterableType | Substitution
     """
     Type parseAtomicType()
-        =>  switch (_ = peek())
-            case (is LBracket) parseTupleType()
-            case (is LBrace) parseIterableType()
-            case (is Caret) parseSubstitution()
+        =>  switch (peek()?.type)
+            case (lBracket) parseTupleType()
+            case (lBrace) parseIterableType()
+            case (caret) parseSubstitution()
             else parseQualifiedType();
 
     """
@@ -474,10 +470,10 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     Type parseParameterListSuffix(Type primaryType) {
         consume(lParen);
 
-        Type arguments
+        value arguments
             =   if (accept(productOp)) then
                     parseUnionType() // spread types
-                else if (!peek() is RParen) then
+                else if (!check(rParen)) then
                     parseTypeList()
                 else
                     scope.unit.emptyDeclaration.type;
@@ -497,10 +493,10 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
                     | ParameterListSuffix )?
     """
     Type parseTypeSuffix(Type primaryType)
-        =>  switch (_ = peek())
-            case (is QuestionMark) parseOptionalSuffix(primaryType)
-            case (is LBracket) parseSequenceSuffix(primaryType)
-            case (is LParen) parseParameterListSuffix(primaryType)
+        =>  switch (peek()?.type)
+            case (questionMark) parseOptionalSuffix(primaryType)
+            case (lBracket) parseSequenceSuffix(primaryType)
+            case (lParen) parseParameterListSuffix(primaryType)
             else primaryType;
 
     """

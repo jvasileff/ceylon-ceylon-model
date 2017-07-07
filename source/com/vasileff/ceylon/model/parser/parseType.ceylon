@@ -23,67 +23,106 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
             .filter((token) => !token is IgnoredToken)
             .iterator();
 
-    void consume() {
-        if (nextToken exists) {
-            nextToken = null;
+    ParseException error(Token? token, String errorDescription) {
+        if (!exists token) {
+            return ParseException("Unexpected end of input; ``errorDescription``");
         }
-        else {
-            tokenIterator.next();
-        }
+        return ParseException("Unexpected token ``token``; ``errorDescription``");
     }
 
-    Token? peek() {
-        value token = nextToken else (nextToken = tokenIterator.next());
-        if (is Finished token) {
+    "Return the next token, or null if there is no next token; do not advance."
+    Token? peek()
+        =>  let (token = nextToken else (nextToken = tokenIterator.next()))
+            if (!is Finished token) then token else null;
+
+    "Return the next token if one exists and it matches [[type]]; do not advance."
+    Token? peekIf(Boolean(TokenType) | TokenType type) {
+        value token = peek();
+        if (!exists token) {
             return null;
         }
-        return token;
-    }
-
-    Token check(Token? token, TokenType? type) {
-        if (!exists token) {
-            if (exists type) {
-                throw Exception("Unexpected end of input: expected ``type``");
-            }
-            else {
-                throw Exception("Unexpected end of input");
+        if (is TokenType type) {
+            if (type == token.type) {
+                return token;
             }
         }
-        if (exists type, !token.type == type) {
-            throw Exception("Unexpected token: expected ``type``, found ``token``");
-        }
-        return token;
-    }
-
-    Token checkAny(Token? token, TokenType+ types) {
-        if (!exists token) {
-            throw Exception("Unexpected end of input: expected ``types``");
-        }
-        if (!token.type in types) {
-            throw Exception("Unexpected token: expected ``types``, found ``token``");
-        }
-        return token;
-    }
-
-    Token expectAny(TokenType+ types) {
-        value token = checkAny(peek(), *types);
-        consume();
-        return token;
-    }
-
-    Token expect(TokenType? type) {
-        value token = check(peek(), type);
-        consume();
-        return token;
-    }
-
-    Token? match(TokenType type) {
-        value token = peek();
-        if (exists token, token.type == type) {
-            consume();
+        else if (type(token.type)) {
             return token;
         }
         return null;
+    }
+
+    "Return the next token if one exists and it matches any of the given [[types]];
+     do not advance."
+    Token? peekIfAny(Boolean(TokenType) | TokenType+ types) {
+        value token = peek();
+        if (!exists token) {
+            return null;
+        }
+        for (type in types) {
+            if (is TokenType type) {
+                if (type == token.type) {
+                    return token;
+                }
+            }
+            else if (type(token.type)) {
+                return token;
+            }
+        }
+        return null;
+    }
+
+    "Advance and return the next token if one exists."
+    Token? advance() {
+        value token = peek();
+        nextToken = null;
+        return token;
+    }
+
+    "Advance and return the next token if one exists and it matches [[type]]."
+    Token? advanceIf(Boolean(TokenType) | TokenType type) {
+        value token = peekIf(type);
+        if (token exists) {
+            advance();
+        }
+        return token;
+    }
+
+    "Advance and return the next token if one exists and it matches any of the given
+     [[types]]."
+    Token? advanceIfAny(Boolean(TokenType) | TokenType+ types) {
+        value token = peekIfAny(*types);
+        if (token exists) {
+            advance();
+        }
+        return token;
+    }
+
+    "Advance to the next token and return `true` if one exists and it matches [[type]];
+     otherwise return `false`."
+    Boolean accept(Boolean(TokenType) | TokenType type)
+        =>  advanceIf(type) exists;
+
+    "Return true if the next token exists and matches [[type]]; do not advance."
+    Boolean check(Boolean(TokenType) | TokenType type)
+        =>  peekIf(type) exists;
+
+    "Advance past the next token which must be of the given [[type]], or raise an error
+     if the next token does not exist or does not match the given `type`."
+    Token consume(Boolean(TokenType) | TokenType type) {
+        if (exists token = advanceIf(type)) {
+            return token;
+        }
+        throw error(peek(), "expected ``type``");
+    }
+
+    "Advance past the next token which must be of one of the given [[types]], or raise an
+     error if the next token does not exist or does not match the given `types`."
+    Token consumeAny(Boolean(TokenType) | TokenType+ types) {
+        if (exists token = advanceIfAny(*types)) {
+            return token;
+        }
+        throw error(peek(), "expected ``types``");
     }
 
     TypeDeclaration? lookup(Package | Type | Null qualifier, String name)
@@ -99,9 +138,9 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         GroupedType: "<" Type ">"
     """
     Type parseGroupedType() {
-        expect(smallerOp);
+        consume(smallerOp);
         value result = parseType();
-        expect(largerOp);
+        consume(largerOp);
         return result;
     }
 
@@ -110,15 +149,9 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         Variance     : ("out" | "in")?
     """
     [Variance?, Type] parseTypeArgument() {
-        Variance? variance
-            =   switch (token = peek())
-                case (is InKeyword) contravariant
-                case (is OutKeyword) covariant
-                else null;
-
-        if (variance exists) {
-            consume();
-        }
+        value variance = if (accept(inKeyword)) then contravariant
+                         else if (accept(outKeyword)) then covariant
+                         else null;
 
         return [variance, parseType()];
     }
@@ -127,17 +160,17 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         TypeArguments : "<" ((TypeArgument ",")* TypeArgument)? ">"
     """
     [[Variance?, Type]*] parseTypeArguments() {
-        expect(smallerOp);
+        consume(smallerOp);
 
         variable {[Variance?, Type]*} arguments = [];
         while (true) {
             arguments = arguments.follow(parseTypeArgument());
-            if (!match(comma) exists) {
+            if (!accept(comma)) {
                 break;
             }
         }
 
-        expect(largerOp);
+        consume(largerOp);
         return arguments.sequence().reversed;
     }
 
@@ -145,8 +178,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         TypeNameWithArguments : TypeName TypeArguments?
     """
     String parseTypeName() {
-        value token = expect(uIdentifier);
-        assert (is UIdentifier token);
+        assert (is UIdentifier token = consume(uIdentifier));
         return token.identifier;
     }
 
@@ -159,7 +191,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         if (exists declaration = lookup(qualifier, name)) {
 
             value typeArguments
-                =   if (peek() is SmallerOp)
+                =   if (check(smallerOp))
                     then parseTypeArguments()
                     else [];
 
@@ -204,12 +236,12 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     Package parsePackageQualifier() {
         value packageName = StringBuilder();
 
-        value token = expectAny(
+        value token = consumeAny(
                 packageKeyword, dollarSign, memberOp, lIdentifier);
 
         switch (token)
         case (is PackageKeyword) {
-            expect(memberOp);
+            consume(memberOp);
             return scope.pkg;
         }
         case (is DollarSign) {
@@ -219,7 +251,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         case (is MemberOp) {
             // '.' is a shortcut for the scope's package
             packageName.append(scope.pkg.qualifiedName);
-            if (exists identifier = match(lIdentifier)) {
+            if (exists identifier = advanceIf(lIdentifier)) {
                 assert (is LIdentifier identifier);
                 packageName.append(".");
                 packageName.append(identifier.identifier);
@@ -230,14 +262,13 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
             packageName.append(token.identifier);
         }
 
-        while (match(memberOp) exists) {
+        while (accept(memberOp)) {
             packageName.append(".");
-            value namePart = expect(lIdentifier);
-            assert (is LIdentifier namePart);
+            assert (is LIdentifier namePart = consume(lIdentifier));
             packageName.append(namePart.identifier);
         }
 
-        expect(doubleColon);
+        consume(doubleColon);
 
         value result = scope.unit.mod.findPackage(packageName.string);
         if (!exists result) {
@@ -265,7 +296,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     """
     Type parseQualifiedType() {
         variable value type = parseBaseType();
-        while (match(memberOp) exists) {
+        while (accept(memberOp)) {
             type = parseTypeNameWithArguments(type);
         }
         return type;
@@ -287,29 +318,22 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
 
         variable {Type*} types = [parseType()];
 
-        if (match(specify) exists) {
+        if (accept(specify)) {
             defaulted++;
         }
 
-        while (match(comma) exists) {
+        while (accept(comma)) {
             types = types.follow(parseType());
-            if (match(specify) exists) {
+            if (accept(specify)) {
                 defaulted++;
             }
-            else if (defaulted.positive && !peek() is ProductOp) {
+            else if (defaulted.positive && !check(productOp)) {
                 throw Exception(
                     "Non-defaulted argument after defaulted argument");
             }
         }
 
-        ProductOp | SumOp | Null variadic;
-        if (is ProductOp | SumOp symbol = peek()) {
-            consume();
-            variadic = symbol;
-        }
-        else {
-            variadic = null;
-        }
+        assert (is ProductOp | SumOp | Null variadic = advanceIfAny(productOp, sumOp));
 
         variable Type result;
         variable Type element;
@@ -358,12 +382,12 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         TupleType : "[" TypeList? "]"
     """
     Type parseTupleType() {
-        expect(lBracket);
-        if (match(rBracket) exists) {
+        consume(lBracket);
+        if (accept(rBracket)) {
             return scope.unit.emptyDeclaration.type;
         }
         value result = parseTypeList();
-        expect(rBracket);
+        consume(rBracket);
         return result;
     }
 
@@ -371,13 +395,13 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         IterableType : "{" UnionType ("*"|"+") "}"
     """
     Type parseIterableType() {
-        expect(lBrace);
+        consume(lBrace);
         value type = parseUnionType();
         value absent
-            =   switch(_ = expectAny(productOp, sumOp))
+            =   switch(_ = consumeAny(productOp, sumOp))
                 case (is ProductOp) scope.unit.nullDeclaration.type
                 else scope.unit.nothingDeclaration.type;
-        expect(rBrace);
+        consume(rBrace);
         return scope.unit.iterableDeclaration.appliedType(
                 null, [type, absent]);
     }
@@ -386,7 +410,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         Substitution : "^"
     """
     Type parseSubstitution() {
-        expect(caret);
+        consume(caret);
         assert (is Type t = substitutionIterator.next());
         return t;
     }
@@ -405,7 +429,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         OptionalSuffix : "?" TypeSuffix
     """
     Type parseOptionalSuffix(Type primaryType) {
-        expect(questionMark);
+        consume(questionMark);
         return parseTypeSuffix(union(
             [primaryType, scope.unit.nullDeclaration.type],
             scope.unit
@@ -416,13 +440,13 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         SequenceSuffix : "[" DecimalLiteral? "]" TypeSuffix
     """
     Type parseSequenceSuffix(Type primaryType) {
-        expect(lBracket);
-        if (exists sizeToken = match(decimalLiteral)) {
+        consume(lBracket);
+        if (exists sizeToken = advanceIf(decimalLiteral)) {
             assert (is Integer size = Integer.parse(sizeToken.text));
             if (!size.positive) {
                 throw Exception("Tuple size must be positive");
             }
-            expect(rBracket);
+            consume(rBracket);
             variable value type
                 =   scope.unit.tupleDeclaration.appliedType {
                         null;
@@ -438,7 +462,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
             return parseTypeSuffix(type);
         }
         else {
-            expect(rBracket);
+            consume(rBracket);
             return parseTypeSuffix(scope.unit.getSequentialType(primaryType));
         }
     }
@@ -448,17 +472,17 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         SpreadType          : "*" UnionType
     """
     Type parseParameterListSuffix(Type primaryType) {
-        expect(lParen);
+        consume(lParen);
 
         Type arguments
-            =   if (match(productOp) exists) then
+            =   if (accept(productOp)) then
                     parseUnionType() // spread types
                 else if (!peek() is RParen) then
                     parseTypeList()
                 else
                     scope.unit.emptyDeclaration.type;
 
-        expect(rParen);
+        consume(rParen);
 
         return scope.unit.callableDeclaration.appliedType {
             null;
@@ -490,7 +514,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     """
     Type parseIntersectionType() {
         variable {Type+} types = [parsePrimaryType()];
-        while (match(intersectionOp) exists) {
+        while (accept(intersectionOp)) {
             types = types.follow(parsePrimaryType());
         }
         return intersection(types.sequence().reversed, scope.unit);
@@ -502,7 +526,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     Type parseUnionType() {
         // UnionType: IntersectionType ("|" IntersectionType)*
         variable {Type+} types = [parseIntersectionType()];
-        while (match(unionOp) exists) {
+        while (accept(unionOp)) {
             types = types.follow(parseIntersectionType());
         }
         return union(types.sequence().reversed, scope.unit);
@@ -516,7 +540,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
         //     Type      : UnionType | EntryType
         //     EntryType : UnionType "->" UnionType
         value type1 = parseUnionType();
-        if (match(entryOp) exists) {
+        if (accept(entryOp)) {
             Type type2 = parseUnionType();
             return scope.unit.entryDeclaration.appliedType(null, [type1, type2]);
         }

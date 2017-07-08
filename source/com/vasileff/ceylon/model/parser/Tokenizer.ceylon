@@ -42,13 +42,13 @@ shared class Tokenizer({Character*} input,
     shared Character? peek()
         =>  if (!is Finished p = iterator.peek()) then p else null;
 
-    Boolean check(Character c, String | Character | Boolean(Character) valid)
+    Boolean check(Character c, Character | {Character*} | Boolean(Character) valid)
         =>  switch (valid)
-            case (is String) c in valid
             case (is Character) c == valid
+            case (is Iterable<Anything>) c in valid
             else valid(c);
 
-    shared Boolean accept(String | Character | Boolean(Character) valid) {
+    shared Boolean accept(Character | {Character*} | Boolean(Character) valid) {
         if (exists c = peek(), check(c, valid)) {
             advance();
             return true;
@@ -56,7 +56,7 @@ shared class Tokenizer({Character*} input,
         return false;
     }
 
-    shared Integer acceptRun(String | Character | Boolean(Character) valid) {
+    shared Integer acceptRun(Character | {Character*} | Boolean(Character) valid) {
         variable value count = 0;
         while (accept(valid)) {
             count++;
@@ -65,7 +65,7 @@ shared class Tokenizer({Character*} input,
     }
 
     shared String read(
-            String | Character | Boolean(Character) valid,
+            Character | {Character*} | Boolean(Character) valid,
             Integer maxLength = runtime.maxIntegerValue) {
         value sb = StringBuilder();
         variable value count = 0;

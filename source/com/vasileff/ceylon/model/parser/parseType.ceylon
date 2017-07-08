@@ -36,7 +36,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
             if (!is Finished token) then token else null;
 
     "Return the next token if one exists and it matches [[type]]; do not advance."
-    Token? peekIf(Boolean(TokenType) | TokenType type) {
+    Token? peekIf(TokenType | {TokenType*} | Boolean(TokenType) type) {
         value token = peek();
         if (!exists token) {
             return null;
@@ -46,28 +46,13 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
                 return token;
             }
         }
-        else if (type(token.type)) {
-            return token;
-        }
-        return null;
-    }
-
-    "Return the next token if one exists and it matches any of the given [[types]];
-     do not advance."
-    Token? peekIfAny(Boolean(TokenType) | TokenType+ types) {
-        value token = peek();
-        if (!exists token) {
-            return null;
-        }
-        for (type in types) {
-            if (is TokenType type) {
-                if (type == token.type) {
-                    return token;
-                }
-            }
-            else if (type(token.type)) {
+        else if (is {Anything*} type) {
+            if (token.type in type) {
                 return token;
             }
+        }
+        else if (type(token.type)) {
+            return token;
         }
         return null;
     }
@@ -80,18 +65,8 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     }
 
     "Advance and return the next token if one exists and it matches [[type]]."
-    Token? advanceIf(Boolean(TokenType) | TokenType type) {
+    Token? advanceIf(TokenType | {TokenType*} | Boolean(TokenType) type) {
         value token = peekIf(type);
-        if (token exists) {
-            advance();
-        }
-        return token;
-    }
-
-    "Advance and return the next token if one exists and it matches any of the given
-     [[types]]."
-    Token? advanceIfAny(Boolean(TokenType) | TokenType+ types) {
-        value token = peekIfAny(*types);
         if (token exists) {
             advance();
         }
@@ -100,29 +75,20 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
 
     "Advance to the next token and return `true` if one exists and it matches [[type]];
      otherwise return `false`."
-    Boolean accept(Boolean(TokenType) | TokenType type)
+    Boolean accept(TokenType | {TokenType*} | Boolean(TokenType) type)
         =>  advanceIf(type) exists;
 
     "Return true if the next token exists and matches [[type]]; do not advance."
-    Boolean check(Boolean(TokenType) | TokenType type)
+    Boolean check(TokenType | {TokenType*} | Boolean(TokenType) type)
         =>  peekIf(type) exists;
 
     "Advance past the next token which must be of the given [[type]], or raise an error
      if the next token does not exist or does not match the given `type`."
-    Token consume(Boolean(TokenType) | TokenType type) {
+    Token consume(TokenType | {TokenType*} | Boolean(TokenType) type) {
         if (exists token = advanceIf(type)) {
             return token;
         }
         throw error(peek(), "expected ``type``");
-    }
-
-    "Advance past the next token which must be of one of the given [[types]], or raise an
-     error if the next token does not exist or does not match the given `types`."
-    Token consumeAny(Boolean(TokenType) | TokenType+ types) {
-        if (exists token = advanceIfAny(*types)) {
-            return token;
-        }
-        throw error(peek(), "expected ``types``");
     }
 
     TypeDeclaration? lookup(Package | Type | Null qualifier, String name)
@@ -233,7 +199,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     """
     Package parsePackageQualifier() {
         value packageName = StringBuilder();
-        value token = consumeAny(packageKeyword, dollarSign, memberOp, lIdentifier);
+        value token = consume([packageKeyword, dollarSign, memberOp, lIdentifier]);
 
         switch (token.type)
         case (packageKeyword) {
@@ -330,7 +296,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
             }
         }
 
-        value variadic = advanceIfAny(productOp, sumOp);
+        value variadic = advanceIf([productOp, sumOp]);
 
         variable Type result;
         variable Type element;
@@ -394,7 +360,7 @@ Type parseType(String input, Scope scope, {Type*} substitutions = [])
     Type parseIterableType() {
         consume(lBrace);
         value type = parseUnionType();
-        value absent = switch(consumeAny(productOp, sumOp).type)
+        value absent = switch(consume([productOp, sumOp]).type)
                        case (productOp) scope.unit.nullDeclaration.type
                        else scope.unit.nothingDeclaration.type;
         consume(rBrace);

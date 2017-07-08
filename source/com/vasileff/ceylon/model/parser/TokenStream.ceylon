@@ -9,8 +9,8 @@ class TokenStream({Character*} characters) satisfies {Token*} {
         Token|Finished next() {
 
             "Assuming at least one identifer character has already been accepted, accept
-             remaining identifer characters and return an [[LIdentifier]] or
-             [[UIdentifier]] token."
+             remaining identifer characters and return an [[lIdentifier]] or
+             [[uIdentifier]] token."
             function identifier() {
                 t.acceptRun(isIdentifierPart);
                 value lowercase = t.accumulatedText.first?.lowercase;
@@ -82,7 +82,7 @@ class TokenStream({Character*} characters) satisfies {Token*} {
             }
             case ('0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9') {
                 // numeric literal, we don’t know yet which kind
-                t.acceptRun((c) => '0' <= c <= '9' || c == '_');
+                t.acceptRun(isDigitOrUnderscore);
                 t.accept("kMGTP");
                 return t.newToken(decimalLiteral);
             }
@@ -155,10 +155,22 @@ class TokenStream({Character*} characters) satisfies {Token*} {
             }
         }
     };
-
-    Boolean isIdentifierStart(Character character)
-        =>  character.letter || character == '_';
-
-    Boolean isIdentifierPart(Character character)
-        =>  character.letter || character.digit || character == '_';
 }
+
+Boolean(Character) isIdentifierStart
+    =   anyCharacter(Character.letter, '_');
+
+Boolean(Character) isIdentifierPart
+    =   anyCharacter(Character.letter, Character.digit, '_');
+
+Boolean(Character) isDigitOrUnderscore
+    =   anyCharacter('0'..'9', '_');
+
+Boolean anyCharacter
+        (Character | {Character*} | Boolean(Character)* patterns)
+        (Character c)
+    =>  patterns.any((p)
+        =>  switch (p)
+            case (is Character) c == p
+            case (is {Anything*}) c in p
+            else p(c));
